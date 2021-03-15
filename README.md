@@ -7,3 +7,5 @@ This repository contains supplementary data on the publication "Climate Policy a
 *Item_GTAP_Concordance.xlsx* includes matching tables for each item code to **GTAP sectors**.
 
 *Item_Categories_Concordance.xlsx* includes matching tables for each item code to **consumption categories** (food, goods, energy, services).
+
+*Carbon_intensities.xlsx* includes derived **embedded carbon intensities** of household consumption for each country and each GTAP sector.
