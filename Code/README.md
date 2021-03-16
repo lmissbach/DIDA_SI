@@ -6,4 +6,4 @@ This subfolder contains R-Code used in the analysis of household budget surveys.
 
 - *2_Analysis.R* requires output from *Cleaning*-Files.
 
-- *3_Graphics.R" requires aggregated output which is provided in the data repository (https://github.com/lmissbach/DIDA_SI/tree/main/Aggregated_Data).
+- *3_Graphics.R* requires aggregated output which is provided in the data repository (https://github.com/lmissbach/DIDA_SI/tree/main/Aggregated_Data).
