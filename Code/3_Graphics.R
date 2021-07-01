@@ -8,6 +8,7 @@ library("cowplot")
 library("data.table")
 library("foreign")
 library("ggthemes")
+library("ggpubr")
 library("ggsci")
 library("Hmisc")
 library("janitor")
@@ -118,7 +119,7 @@ shape.for.graphical.analysis.1.1 <- function(File){
 shape.for.graphical.analysis.2 <- function(File, Code.Urban){
   File <- File %>%
     left_join(Code.Urban, by = "urban")%>%
-    select(hh_id, hh_size, hh_weights, Urban, Income_Group_5, burden_CO2_per_capita, burden_CO2_within_per_capita, burden_electricity_per_capita)
+    select(hh_id, hh_size, hh_weights, Urban, Income_Group_5, burden_CO2_per_capita, burden_CO2_within_per_capita, burden_electricity_per_capita, burden_TRSP_per_capita, burden_ELY_CO2_per_capita)
   
   File_1 <- File %>%
     group_by(Income_Group_5)%>%
@@ -126,14 +127,20 @@ shape.for.graphical.analysis.2 <- function(File, Code.Urban){
       wtd.median_CO2        = wtd.quantile(burden_CO2_per_capita,         weight = hh_weights, probs = 0.5),
       wtd.median_CO2_within = wtd.quantile(burden_CO2_within_per_capita,  weight = hh_weights, probs = 0.5),
       wtd.median_ely        = wtd.quantile(burden_electricity_per_capita, weight = hh_weights, probs = 0.5),
+      wtd.median_TRSP       = wtd.quantile(burden_TRSP_per_capita,        weight = hh_weights, probs = 0.5),
+      wtd.median_ELY_CO2    = wtd.quantile(burden_ELY_CO2_per_capita,     weight = hh_weights, probs = 0.5),
       
       wtd.25_CO2        = wtd.quantile(burden_CO2_per_capita,         weight = hh_weights, probs = 0.25),
       wtd.25_CO2_within = wtd.quantile(burden_CO2_within_per_capita,  weight = hh_weights, probs = 0.25),
       wtd.25_ely        = wtd.quantile(burden_electricity_per_capita, weight = hh_weights, probs = 0.25),
+      wtd.25_TRSP       = wtd.quantile(burden_TRSP_per_capita,        weight = hh_weights, probs = 0.25),
+      wtd.25_ELY_CO2    = wtd.quantile(burden_ELY_CO2_per_capita,     weight = hh_weights, probs = 0.25),
       
       wtd.75_CO2        = wtd.quantile(burden_CO2_per_capita,         weight = hh_weights, probs = 0.75),
       wtd.75_CO2_within = wtd.quantile(burden_CO2_within_per_capita,  weight = hh_weights, probs = 0.75),
-      wtd.75_ely        = wtd.quantile(burden_electricity_per_capita, weight = hh_weights, probs = 0.75)
+      wtd.75_ely        = wtd.quantile(burden_electricity_per_capita, weight = hh_weights, probs = 0.75),
+      wtd.75_TRSP       = wtd.quantile(burden_TRSP_per_capita,        weight = hh_weights, probs = 0.75),
+      wtd.75_ELY_CO2    = wtd.quantile(burden_ELY_CO2_per_capita,     weight = hh_weights, probs = 0.75)
       
     )%>%
     ungroup()
@@ -141,34 +148,56 @@ shape.for.graphical.analysis.2 <- function(File, Code.Urban){
   File_2 <- File_1 %>%
     mutate(CO2              = wtd.median_CO2       /File_1$wtd.median_CO2[1],
            CO2_within       = wtd.median_CO2_within/File_1$wtd.median_CO2_within[1],
-           ELY              = wtd.median_ely       /File_1$wtd.median_ely[1])%>%
+           ELY              = wtd.median_ely       /File_1$wtd.median_ely[1],
+           TRSP             = wtd.median_TRSP      /File_1$wtd.median_TRSP[1],
+           ELY_CO2          = wtd.median_ELY_CO2   /File_1$wtd.median_ELY_CO2[1])%>%
     mutate(CO2_low          = wtd.25_CO2           /File_1$wtd.median_CO2[1],
            CO2_within_low   = wtd.25_CO2_within    /File_1$wtd.median_CO2_within[1],
-           ELY_low          = wtd.25_ely           /File_1$wtd.median_ely[1])%>%
+           ELY_low          = wtd.25_ely           /File_1$wtd.median_ely[1],
+           TRSP_low         = wtd.25_TRSP          /File_1$wtd.median_TRSP[1],
+           ELY_CO2_low      = wtd.25_ELY_CO2       /File_1$wtd.median_ELY_CO2[1])%>%
     mutate(CO2_upper        = wtd.75_CO2           /File_1$wtd.median_CO2[1],
            CO2_within_upper = wtd.75_CO2_within    /File_1$wtd.median_CO2_within[1],
-           ELY_upper        = wtd.75_ely           /File_1$wtd.median_ely[1])
+           ELY_upper        = wtd.75_ely           /File_1$wtd.median_ely[1],
+           TRSP_upper       = wtd.75_TRSP          /File_1$wtd.median_TRSP[1],
+           ELY_CO2_upper    = wtd.75_ELY_CO2       /File_1$wtd.median_ELY_CO2[1])
   
   File_3 <- File_2 %>%
-    select(Income_Group_5, CO2:ELY_upper)
+    select(Income_Group_5, CO2:ELY_CO2_upper, wtd.median_CO2_within)
   
   File_3a <- File_3 %>%
     select(Income_Group_5, CO2, CO2_low, CO2_upper)%>%
     mutate(Type_0 = "CO2")%>%
     rename(pure = CO2, low = CO2_low, upper = CO2_upper)
-
+  
   File_3b <- File_3 %>%
-    select(Income_Group_5, CO2_within, CO2_within_low, CO2_within_upper)%>%
+    select(Income_Group_5, CO2_within, CO2_within_low, CO2_within_upper, wtd.median_CO2_within)%>%
     mutate(Type_0 = "CO2_within")%>%
-    rename(pure = CO2_within, low = CO2_within_low, upper = CO2_within_upper)
+    rename(pure = CO2_within, low = CO2_within_low, upper = CO2_within_upper)%>%
+    mutate(wtd.median_CO2_within = ifelse(Income_Group_5 != 1, NA, round(wtd.median_CO2_within*100,1)))%>%
+    mutate(label = ifelse(Income_Group_5 != 1, NA, paste0(wtd.median_CO2_within, "%")))
   
   File_3c <- File_3 %>%
     select(Income_Group_5, ELY, ELY_low, ELY_upper)%>%
     mutate(Type_0 = "ELY")%>%
     rename(pure = ELY, low = ELY_low, upper = ELY_upper)
   
-  File_4 <- rbind(File_3a, File_3b)%>%
-    rbind(File_3c)
+  File_3d <- File_3 %>%
+    select(Income_Group_5, TRSP, TRSP_low, TRSP_upper)%>%
+    mutate(Type_0 = "TRSP")%>%
+    rename(pure = TRSP, low = TRSP_low, upper = TRSP_upper)
+  
+  File_3e <- File_3 %>%
+    select(Income_Group_5, ELY_CO2, ELY_CO2_low, ELY_CO2_upper)%>%
+    mutate(Type_0 = "ELY_CO2")%>%
+    rename(pure = ELY_CO2, low = ELY_CO2_low, upper = ELY_CO2_upper)
+  
+  #Add_on <- data.frame(Income_Group_5 = c(6,6,6), Type_0 = c("CO2", "ELY", "CO2_within"))
+  
+  File_4 <- bind_rows(File_3a, File_3b)%>%
+    bind_rows(File_3c)%>%
+    bind_rows(File_3d)%>%
+    bind_rows(File_3e)
   
   File_final <- File_4  
   return(File_final)
@@ -195,6 +224,69 @@ shape.for.graphical.analysis.2.1 <- function(Incidence.X){
     rbind(Incidence.X.3)
   
   return(Incidence.X.4)
+  
+}
+
+shape.for.graphical.analysis.2.2 <- function(Incidence.X, Country.Name){
+  Incidence.Y <- Incidence.X %>%
+    select(hh_id, hh_size, hh_weights, Income_Group_5, hh_expenditure_USD_pc, starts_with("burden"),
+           starts_with("exp_"))%>%
+    mutate(total_expenditures_CO2        = exp_pc_CO2*       hh_size*hh_weights,
+           total_expenditures_CO2_within = exp_pc_CO2_within*hh_size*hh_weights,
+           population                    = hh_size*hh_weights)
+  
+  no_households                     <- sum(Incidence.Y$hh_weights)
+  no_population                     <- sum(Incidence.Y$population)
+  total_expenditures_CO2_all        <- sum(Incidence.Y$total_expenditures_CO2)
+  total_expenditures_CO2_within_all <- sum(Incidence.Y$total_expenditures_CO2_within)
+  
+  LST_CO2_per_hh                    <- total_expenditures_CO2_all/no_households
+  LST_CO2_per_capita                <- total_expenditures_CO2_all/no_population
+  LST_CO2_within_per_hh             <- total_expenditures_CO2_within_all/no_households
+  LST_CO2_within_per_capita         <- total_expenditures_CO2_within_all/no_population  
+  
+  Incidence.Y.1 <- Incidence.Y %>%
+    mutate(exp_pc_CO2_LST_hh        = -(exp_pc_CO2        - (LST_CO2_per_hh/hh_size)),
+           exp_pc_CO2_LST_pc        = -(exp_pc_CO2        - LST_CO2_per_capita),
+           exp_pc_CO2_within_LST_hh = -(exp_pc_CO2_within - (LST_CO2_within_per_hh/hh_size)),
+           exp_pc_CO2_within_LST_pc = -(exp_pc_CO2_within - (LST_CO2_within_per_capita)),
+           # Attention: Negative Values indicate positive budget change
+           burden_CO2_pc_LST_hh        = exp_pc_CO2_LST_hh/hh_expenditure_USD_pc,
+           burden_CO2_pc_LST_pc        = exp_pc_CO2_LST_pc/hh_expenditure_USD_pc,
+           burden_CO2_within_pc_LST_hh = exp_pc_CO2_within_LST_hh/hh_expenditure_USD_pc,
+           burden_CO2_within_pc_LST_pc = exp_pc_CO2_within_LST_pc/hh_expenditure_USD_pc,
+           
+           exp_pc_CO2                   = -exp_pc_CO2,
+           exp_pc_CO2_within            = -exp_pc_CO2_within,
+           burden_CO2_per_capita        = -burden_CO2_per_capita,
+           burden_CO2_within_per_capita = -burden_CO2_within_per_capita)%>%
+    select(hh_id, hh_weights, Income_Group_5, starts_with("burden_"), starts_with("exp"))
+  
+  Incidence.Y.2 <- Incidence.Y.1 %>%
+    group_by(Income_Group_5)%>%
+    summarise(
+      exp_pc_CO2               = wtd.quantile(exp_pc_CO2              , probs = 0.5, weights = hh_weights),
+      exp_pc_CO2_LST_pc        = wtd.quantile(exp_pc_CO2_LST_pc       , probs = 0.5, weights = hh_weights),
+      exp_pc_CO2_LST_hh        = wtd.quantile(exp_pc_CO2_LST_hh       , probs = 0.5, weights = hh_weights),
+      exp_pc_CO2_within        = wtd.quantile(exp_pc_CO2_within       , probs = 0.5, weights = hh_weights),
+      exp_pc_CO2_within_LST_pc = wtd.quantile(exp_pc_CO2_within_LST_pc, probs = 0.5, weights = hh_weights),
+      exp_pc_CO2_within_LST_hh = wtd.quantile(exp_pc_CO2_within_LST_hh, probs = 0.5, weights = hh_weights),
+      
+      
+      burden_CO2_pc_no_LST = wtd.quantile(burden_CO2_per_capita, probs = 0.5, weights = hh_weights),
+      burden_CO2_pc_LST_hh = wtd.quantile(burden_CO2_pc_LST_hh,  probs = 0.5, weights = hh_weights),
+      burden_CO2_pc_LST_pc = wtd.quantile(burden_CO2_pc_LST_pc,  probs = 0.5, weights = hh_weights),
+      
+      burden_CO2_within_pc_no_LST = wtd.quantile(burden_CO2_within_per_capita, probs = 0.5, weights = hh_weights),
+      burden_CO2_within_pc_LST_hh = wtd.quantile(burden_CO2_within_pc_LST_hh,  probs = 0.5, weights = hh_weights),
+      burden_CO2_within_pc_LST_pc = wtd.quantile(burden_CO2_within_pc_LST_pc,  probs = 0.5, weights = hh_weights))%>%
+    ungroup()%>%
+    mutate(Country = Country.Name)%>%
+    select(Country, everything())
+  
+  list_0 <- list("Full_df" = Incidence.Y.1, "Summarised_df" = Incidence.Y.2)
+  
+  return(list_0)
   
 }
 
@@ -272,7 +364,7 @@ shape.for.graphical.analysis.6 <- function(Incidence.X, Code.Urban){
 
 # 2.1      Bangladesh ####
 
-Incidence.Bangladesh   <- read_csv("/Aggregated_Data/Incidence.Analysis.Bangladesh_11_2020.csv")
+Incidence.Bangladesh   <- read_csv("Aggregated_Data/Incidence.Analysis.Bangladesh_11_2020.csv")
 I.B <- left_join(Incidence.Bangladesh, Urban.New.1, by = "urban")
 Incidence.Bangladesh.1 <- (shape.for.graphical.analysis.1(Incidence.Bangladesh, Urban.New.1))$File_4
 Incidence.Bangladesh.1.1 <- shape.for.graphical.analysis.1.1(Incidence.Bangladesh.1)$File_1
@@ -281,7 +373,8 @@ Incidence.Bangladesh.1.3 <- shape.for.graphical.analysis.4(Incidence.Bangladesh)
 Incidence.Bangladesh.1.4 <- shape.for.graphical.analysis.5(Incidence.Bangladesh)
 Incidence.Bangladesh.1.5 <- shape.for.graphical.analysis.6(Incidence.Bangladesh, Urban.New.1)
 Incidence.Bangladesh.2 <- shape.for.graphical.analysis.2(Incidence.Bangladesh, Urban.New.1)
-Incidence.Bangladesh.2.1 <- shape.for.graphical.analysis.2.1(Incidence.Bangladesh.2)
+Incidence.Bangladesh.2.2.1 <- shape.for.graphical.analysis.2.2(Incidence.Bangladesh, "Bangladesh")$Full_df
+Incidence.Bangladesh.2.2.2 <- shape.for.graphical.analysis.2.2(Incidence.Bangladesh, "Bangladesh")$Summarised_df
 
 # 2.2      India ####
 
@@ -297,7 +390,8 @@ Incidence.India.1.3 <- shape.for.graphical.analysis.4(Incidence.India)
 Incidence.India.1.4 <- shape.for.graphical.analysis.5(Incidence.India)
 Incidence.India.1.5 <- shape.for.graphical.analysis.6(Incidence.India, Urban.New.1)
 Incidence.India.2 <- shape.for.graphical.analysis.2(Incidence.India, Urban.New.1)
-Incidence.India.2.1 <- shape.for.graphical.analysis.2.1(Incidence.India.2)
+Incidence.India.2.2.1 <- shape.for.graphical.analysis.2.2(Incidence.India, "India")$Full_df
+Incidence.India.2.2.2 <- shape.for.graphical.analysis.2.2(Incidence.India, "India")$Summarised_df
 
 # 2.3      Indonesia ####
 
@@ -319,7 +413,8 @@ Incidence.Indonesia.1.3 <- shape.for.graphical.analysis.4(Incidence.Indonesia)
 Incidence.Indonesia.1.4 <- shape.for.graphical.analysis.5(Incidence.Indonesia)
 Incidence.Indonesia.1.5 <- shape.for.graphical.analysis.6(Incidence.Indonesia, Urban.New.2)
 Incidence.Indonesia.2 <- shape.for.graphical.analysis.2(Incidence.Indonesia, Urban.New.2)
-Incidence.Indonesia.2.1 <- shape.for.graphical.analysis.2.1(Incidence.Indonesia.2)
+Incidence.Indonesia.2.2.1 <- shape.for.graphical.analysis.2.2(Incidence.Indonesia, "Indonesia")$Full_df
+Incidence.Indonesia.2.2.2 <- shape.for.graphical.analysis.2.2(Incidence.Indonesia, "Indonesia")$Summarised_df
 
 # 2.4      Pakistan ####
 
@@ -331,10 +426,9 @@ Incidence.Pakistan.1.2 <- shape.for.graphical.analysis.3(Incidence.Pakistan)
 Incidence.Pakistan.1.3 <- shape.for.graphical.analysis.4(Incidence.Pakistan)
 Incidence.Pakistan.1.4 <- shape.for.graphical.analysis.5(Incidence.Pakistan)
 Incidence.Pakistan.1.5 <- shape.for.graphical.analysis.6(Incidence.Pakistan, Urban.New.1)
-# Weights.Pakistan     <- unlist((shape.for.graphical.analysis.1(Incidence.Pakistan, Urban.New.2))$File_0, use.names = FALSE)
-
 Incidence.Pakistan.2 <- shape.for.graphical.analysis.2(Incidence.Pakistan, Urban.New.1)
-Incidence.Pakistan.2.1 <- shape.for.graphical.analysis.2.1(Incidence.Pakistan.2)
+Incidence.Pakistan.2.2.1 <- shape.for.graphical.analysis.2.2(Incidence.Pakistan, "Pakistan")$Full_df
+Incidence.Pakistan.2.2.2 <- shape.for.graphical.analysis.2.2(Incidence.Pakistan, "Pakistan")$Summarised_df
 
 # 2.5      Philippines ####
 
@@ -347,7 +441,8 @@ Incidence.Philippines.1.3 <- shape.for.graphical.analysis.4  (Incidence.Philippi
 Incidence.Philippines.1.4 <- shape.for.graphical.analysis.5  (Incidence.Philippines)
 Incidence.Philippines.1.5 <- shape.for.graphical.analysis.6  (Incidence.Philippines, Urban.New.1)
 Incidence.Philippines.2 <- shape.for.graphical.analysis.2    (Incidence.Philippines, Urban.New.1)
-Incidence.Philippines.2.1 <- shape.for.graphical.analysis.2.1(Incidence.Philippines.2)
+Incidence.Philippines.2.2.1 <- shape.for.graphical.analysis.2.2(Incidence.Philippines, "Philippines")$Full_df
+Incidence.Philippines.2.2.2 <- shape.for.graphical.analysis.2.2(Incidence.Philippines, "Philippines")$Summarised_df
 
 # 2.6      Thailand ####
 
@@ -360,7 +455,8 @@ Incidence.Thailand.1.3 <- shape.for.graphical.analysis.4  (Incidence.Thailand)
 Incidence.Thailand.1.4 <- shape.for.graphical.analysis.5  (Incidence.Thailand)
 Incidence.Thailand.1.5 <- shape.for.graphical.analysis.6  (Incidence.Thailand, Urban.New.1)
 Incidence.Thailand.2 <- shape.for.graphical.analysis.2    (Incidence.Thailand, Urban.New.1)
-Incidence.Thailand.2.1 <- shape.for.graphical.analysis.2.1(Incidence.Thailand.2)
+Incidence.Thailand.2.2.1 <- shape.for.graphical.analysis.2.2(Incidence.Thailand, "Thailand")$Full_df
+Incidence.Thailand.2.2.2 <- shape.for.graphical.analysis.2.2(Incidence.Thailand, "Thailand")$Summarised_df
 
 # 2.7      Turkey ####
 
@@ -373,7 +469,8 @@ Incidence.Turkey.1.3 <- shape.for.graphical.analysis.4(Incidence.Turkey)
 Incidence.Turkey.1.4 <- shape.for.graphical.analysis.5(Incidence.Turkey)
 Incidence.Turkey.1.5 <- shape.for.graphical.analysis.6(Incidence.Turkey, Urban.New.1)
 Incidence.Turkey.2 <- shape.for.graphical.analysis.2(Incidence.Turkey, Urban.New.1)
-Incidence.Turkey.2.1 <- shape.for.graphical.analysis.2.1(Incidence.Turkey.2)
+Incidence.Turkey.2.2.1 <- shape.for.graphical.analysis.2.2(Incidence.Turkey, "Turkey")$Full_df
+Incidence.Turkey.2.2.2 <- shape.for.graphical.analysis.2.2(Incidence.Turkey, "Turkey")$Summarised_df
 
 # 2.8      Vietnam ####
 
@@ -386,53 +483,63 @@ Incidence.Vietnam.1.3 <- shape.for.graphical.analysis.4(Incidence.Vietnam)
 Incidence.Vietnam.1.4 <- shape.for.graphical.analysis.5(Incidence.Vietnam)
 Incidence.Vietnam.1.5 <- shape.for.graphical.analysis.6(Incidence.Vietnam, Urban.New.2)
 Incidence.Vietnam.2 <- shape.for.graphical.analysis.2(Incidence.Vietnam, Urban.New.2)
-Incidence.Vietnam.2.1 <- shape.for.graphical.analysis.2.1(Incidence.Vietnam.2)
+Incidence.Vietnam.2.2.1 <- shape.for.graphical.analysis.2.2(Incidence.Vietnam, "Vietnam")$Full_df
+Incidence.Vietnam.2.2.2 <- shape.for.graphical.analysis.2.2(Incidence.Vietnam, "Vietnam")$Summarised_df
 
 # 3        Functions / Graphical Output ####
 
-setwd("..") # Select final repository for graphics
-
 ppi <- 400
 
-# 4        Normalized                                       (Figure 1)  ####
+# MAIN FIGURES ####
+# 4        Normalized Figure                                (Figure 1)  ####
 
-normalize_new <- function(Incidence.X, Country.Name, limit_low, limit_up, step_0, XLAB = "", YLAB = "", ATX = element_text(size = 20), ATY = element_text(size = 20)){
-
+normalize_new <- function(Incidence.X, Country.Name, limit_low, limit_up, step_0, XLAB = "", YLAB = "", ATT = element_text(size = 7), ATX = element_text(size = 6), ATY = element_text(size = 6)){
+  #Incidence.X <- Incidence.X %>%
+  #  select(-value.urban, - value.rural)
   Incidence.X <- Incidence.X %>%
-    rename(type = Type_0)
+    rename(type = Type_0)%>%
+    mutate(Label_2 = ifelse(Country.Name == "Pakistan" & type == "TRSP" & Income_Group_5 > 3, round(pure,2), NA))%>%
+    filter(type != "ELY")
   
   
   Incidence.X$help <- paste(Incidence.X$Income_Group_5, "_", Incidence.X$type)
   
+  if(Country.Name == "Thailand" | Country.Name == "Turkey" | Country.Name == "Indonesia" | Country.Name == "India") nudge_0 <- -0.25 else nudge_0 <- -0.25
+  
   P.1 <- ggplot(Incidence.X, aes(x = factor(Income_Group_5)))+
-    geom_hline(yintercept = 1, size = 1, colour = "black")+
+    geom_hline(yintercept = 1, colour = "black", size = 0.3)+
     #geom_ribbon(aes(ymin = low, ymax = upper, group = type, fill = type), alpha = 0.2)+
-    geom_line(aes(y = pure,  group = type, colour = type), size = 2, position = position_dodge(0.2))+
-    geom_point(aes(y = pure, group = type, fill = type, shape = type  ), size = 5, colour = "black", position = position_dodge(0.2))+
-    scale_colour_npg(labels = c("International Carbon Price","National Carbon Price", "Power Sector Instruments")) +
-    scale_fill_npg  (labels = c("International Carbon Price","National Carbon Price", "Power Sector Instruments"))+
-    scale_shape_manual(values = c(21,22,23), labels = c("International Carbon Price","National Carbon Price", "Power Sector Instruments"))+
+    geom_label_repel(aes(y = 1,    group = type,  label = label),   size = 1.6, segment.linetype = 1, segment.size = 0.1, box.padding = 0.00, label.padding = 0.10, label.r = 0.05, direction = "y", min.segment.length = 0, nudge_y = nudge_0)+
+    geom_label_repel(aes(y = 3,    group = type,  label = Label_2), size = 1.6, segment.linetype = 1, segment.size = 0.1, box.padding = 0.00, label.padding = 0.10, label.r = 0.05, direction = "y", min.segment.length = 0, nudge_y = -0.6)+
+    #geom_label_repel(aes(y = pure, group = type, segment.linetype = 1, label = label_emissions_coverage, segment.size = 1, size = 15), min.segment.length = 0, hjust = 1, force_pull = 0, nudge_x = 1)+
+    geom_line(aes( y = pure, group = type, colour = type, alpha = type), size = 0.4, position = position_dodge(0.2))+
+    geom_point(aes(y = pure, group = type, fill = type, shape = type, alpha = type), size = 1.5, colour = "black", position = position_dodge(0.2), stroke = 0.2)+
+    scale_colour_npg(  labels = c("International Carbon Price","National Carbon Price", "Electricity Sector Carbon Price", "Liquid Fuel Carbon Price")) +
+    scale_fill_npg  (  labels = c("International Carbon Price","National Carbon Price", "Electricity Sector Carbon Price", "Liquid Fuel Carbon Price"))+
+    scale_shape_manual(labels = c("International Carbon Price","National Carbon Price", "Electricity Sector Carbon Price", "Liquid Fuel Carbon Price"), values = c(21,22,23,24,25))+
+    scale_alpha_manual(labels = c("International Carbon Price","National Carbon Price", "Electricity Sector Carbon Price", "Liquid Fuel Carbon Price"), values = c(1,1,1,1,1))+
     labs(fill = "", colour = "", shape = "", alpha = "", linetype = "")+
     theme_bw() + 
     scale_x_discrete(labels = c("1","2","3","4","5"))+
     scale_y_continuous(breaks = seq(limit_low, limit_up, step_0))+
-    theme(axis.text.x = ATX, axis.text.y = ATY, axis.title = element_text(size = 25), legend.position = "bottom" , plot.title = element_text(size = 35), panel.border = element_rect(size = 1.5), panel.grid.major = element_line(size = 1))+
+    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 7), legend.position = "bottom", strip.text = element_text(size = 7), strip.text.y = element_text(angle = 180), panel.grid.major = element_line(size = 0.3), panel.grid.minor = element_blank(), axis.ticks = element_line(size = 0.2),
+          legend.text = element_text(size = 7), legend.title = element_text(size = 7), plot.margin = unit(c(0.1,0.2,0,0), "cm"), panel.border = element_rect(size = 0.3))+
     coord_cartesian(ylim = c(limit_low-0.0, (limit_up+0.0)))+
-    #guides(fill = FALSE, colour = guide_legend(nrow = 1, order = 1), shape = FALSE)+
-    guides(fill = FALSE, colour = FALSE, shape = FALSE)+
+    #guides(fill = guide_legend(nrow = 2, order = 1), colour = guide_legend(nrow = 2, order = 1), shape = guide_legend(nrow = 2, order = 1), alpha = FALSE, size = FALSE)+
+    guides(fill = FALSE, colour = FALSE, shape = FALSE, size = FALSE, alpha = FALSE)+
     xlab(XLAB)+ylab(YLAB)+ ggtitle(Country.Name)
   
   return(P.1)
 }
 
-P.1.BAN <- normalize_new(Incidence.Bangladesh.2,  "Bangladesh",  0.5, 2.5, 0.50, ATX = element_blank(), YLAB = "Incidence normalized by first Quintile")
-P.1.India <- normalize_new(Incidence.India.2,     "India",       0.5, 1.3, 0.25, XLAB = "Expenditure Quintile", YLAB = "Incidence normalized by first Quintile")
-P.1.IDN <- normalize_new(Incidence.Indonesia.2,   "Indonesia",   0.5, 1.3, 0.25, XLAB = "Expenditure Quintile", ATY = element_blank())
-P.1.PAK <- normalize_new(Incidence.Pakistan.2,    "Pakistan",    0.5, 2.5, 0.50, ATX = element_blank(), ATY = element_blank())
-P.1.PHI <- normalize_new(Incidence.Philippines.2, "Philippines", 0.5, 2.5, 0.50, ATX = element_blank(), ATY = element_blank(), XLAB = "", YLAB = "")
-P.1.THA <- normalize_new(Incidence.Thailand.2,    "Thailand",    0.5, 1.3, 0.25, XLAB = "Expenditure Quintile", ATY = element_blank())
-P.1.TUR <- normalize_new(Incidence.Turkey.2,      "Turkey",      0.5, 1.3, 0.25, XLAB = "Expenditure Quintile", ATY = element_blank())
-P.1.VIE <- normalize_new(Incidence.Vietnam.2,     "Vietnam",     0.5, 2.5, 0.50, ATX = element_blank(), XLAB = "", ATY = element_blank())
+P.1.BAN   <- normalize_new(Incidence.Bangladesh.2,  "Bangladesh",  0.5, 2.5, 0.50, ATX = element_blank(), YLAB = "Incidence normalized by first Quintile")
+P.1.India <- normalize_new(Incidence.India.2,       "India",       0.5, 2.5, 0.50, ATX = element_blank(), ATY = element_blank())
+P.1.IDN   <- normalize_new(Incidence.Indonesia.2,   "Indonesia",   0.5, 2.5, 0.50, ATX = element_blank(), ATY = element_blank())
+P.1.PAK   <- normalize_new(Incidence.Pakistan.2,    "Pakistan",    0.5, 2.5, 0.50, ATX = element_blank(), ATY = element_blank())
+P.1.PHI   <- normalize_new(Incidence.Philippines.2, "Philippines", 0.5, 2.5, 0.50, XLAB = "Expenditure Quintile", YLAB = "Incidence normalized by first Quintile")
+P.1.THA   <- normalize_new(Incidence.Thailand.2,    "Thailand",    0.5, 2.5, 0.50, XLAB = "Expenditure Quintile", ATY = element_blank())
+P.1.TUR   <- normalize_new(Incidence.Turkey.2,      "Turkey",      0.5, 2.5, 0.50, XLAB = "Expenditure Quintile", ATY = element_blank())
+P.1.VIE   <- normalize_new(Incidence.Vietnam.2,     "Vietnam",     0.5, 2.5, 0.50, XLAB = "Expenditure Quintile", ATY = element_blank())
 
 P.10 <- cowplot::align_plots(P.1.BAN, P.1.India, P.1.IDN, P.1.PAK, P.1.PHI, P.1.THA, P.1.TUR, P.1.VIE, align = "hv")
 s.1 <- ggdraw(P.10[[1]])
@@ -444,27 +551,71 @@ s.6 <- ggdraw(P.10[[6]])
 s.7 <- ggdraw(P.10[[7]])
 s.8 <- ggdraw(P.10[[8]])
 
-png("Figure_1_%d.png", width = 15, height = 16, unit = "cm", res = ppi)
-
-s.1
-s.2
-s.3
-s.4
-s.5
-s.6
-s.7
-s.8
-
-dev.off()
-
-# L.1 <- ggdraw(get_legend(P.1.BAN))
+# png("Figures/Figure_1_%d.png", width = 15, height = 16, unit = "cm", res = ppi)
 # 
-# png("Legend_Fig_1.png", width = 15, height = 3, unit = "cm", res = ppi)
-# 
-# L.1
+# s.1
+# s.2
+# s.3
+# s.4
+# s.5
+# s.6
+# s.7
+# s.8
 # 
 # dev.off()
-# 
+
+# Requires running line 527 uncommented and line 528 uncommented
+
+L.1 <- get_legend(P.1.BAN)
+
+
+# 4.1      Included Emissions ####
+
+agg_emissions_ban <- read_csv("Aggregated_Data/Emissions/Agg_Emissions_Bangladesh.csv")
+agg_emissions_ini <- read_csv("Aggregated_Data/Emissions/Agg_Emissions_India.csv")
+agg_emissions_ino <- read_csv("Aggregated_Data/Emissions/Agg_Emissions_Indonesia.csv")
+agg_emissions_pak <- read_csv("Aggregated_Data/Emissions/Agg_Emissions_Pakistan.csv")
+agg_emissions_phi <- read_csv("Aggregated_Data/Emissions/Agg_Emissions_Philippines.csv")
+agg_emissions_tha <- read_csv("Aggregated_Data/Emissions/Agg_Emissions_Thailand.csv")
+agg_emissions_tur <- read_csv("Aggregated_Data/Emissions/Agg_Emissions_Turkey.csv")
+agg_emissions_vie <- read_csv("Aggregated_Data/Emissions/Agg_Emissions_Vietnam.csv")
+
+plot_function <- function(data_x, ATY = element_text(size = 6), ATT = element_text(size = 7)){
+  
+  P.1 <- ggplot(data_x, aes(x = Type, y = share))+
+    geom_col(aes(fill = Type), colour = "black", width = 0.75, size = 0.2)+
+    geom_label_repel(aes(y = 0.95, group = Type, label = Label), size = 1.5, segment.linetype = 1, direction = "x", min.segment.length = 0, nudge_x = 0.1, label.size = 0.1, label.padding = 0.05, box.padding = 0, label.r = 0.01)+
+    theme_bw()+
+    coord_cartesian(ylim = c(0,1.02))+
+    scale_fill_npg()+
+    guides(fill = FALSE, size = FALSE)+
+    ylab(bquote('Share of covered ' ~CO[2]~ 'Emissions')) + xlab("")+ 
+    scale_y_continuous(labels = percent_format(), expand = c(0,0))+
+    ggtitle("")+
+    theme(axis.text.y = ATY, axis.text.x = element_blank(), axis.title = ATT, plot.title = element_text(size = 7), legend.position = "bottom", strip.text = element_text(size = 7), strip.text.y = element_text(angle = 180), panel.grid.major = element_line(size = 0.3), panel.grid.minor = element_blank(), axis.ticks.y = element_line(size = 0.2), axis.ticks.x = element_blank(),
+          legend.text = element_text(size = 7), legend.title = element_text(size = 7), plot.margin = unit(c(0.1,0.1,0,0), "cm"), panel.border = element_rect(size = 0.3), legend.background = element_rect(fill = "white", colour = "black"))
+  
+}
+
+plot_ban <- plot_function(agg_emissions_ban)
+plot_ini <- plot_function(agg_emissions_ini, ATY = element_blank(), ATT = element_blank())
+plot_ino <- plot_function(agg_emissions_ino, ATY = element_blank(), ATT = element_blank())
+plot_pak <- plot_function(agg_emissions_pak, ATY = element_blank(), ATT = element_blank())
+plot_phi <- plot_function(agg_emissions_phi)
+plot_tha <- plot_function(agg_emissions_tha, ATY = element_blank(), ATT = element_blank())
+plot_tur <- plot_function(agg_emissions_tur, ATY = element_blank(), ATT = element_blank())
+plot_vie <- plot_function(agg_emissions_vie, ATY = element_blank(), ATT = element_blank())
+
+Figure_A <- ggarrange(P.1.India, plot_ini, P.1.IDN, plot_ino, P.1.PAK, plot_pak, 
+                      P.1.THA, plot_tha, P.1.TUR, plot_tur, P.1.VIE, plot_vie, ncol = 6, nrow = 2, widths = c(1,0.25,1,0.25,1,0.25), align = "h")
+Figure_B <- ggarrange(P.1.BAN, plot_ban, P.1.PHI, plot_phi, align = "h", nrow = 2, ncol = 2, widths = c(1,0.5,1,0.5))
+Figure_C <- ggarrange(Figure_B, Figure_A, ncol = 2, widths = c(1,2.21), common.legend = TRUE, legend = "bottom", legend.grob = L.1)
+
+pdf("Figures/Figure_1.pdf", width = 16.51/2.54, height = 10.75/2.54)
+Figure_C
+dev.off()
+
+
 # 5        Distributions                                    (Figure 2+3) ####
 
 calculate_median <- function(x){
@@ -536,54 +687,29 @@ plotting_ten.1 <- function(Incidence.X, Country.Name, fill0 = FALSE, ATY = eleme
     left_join(t.X.2, by = c("Income_Group_5"))
   Incidence.X3.1 <- Incidence.X3 %>%
     left_join(t.X.3, by = c("Income_Group_5"))
-  
-  P_1 <- ggplot(Incidence.X1.1, aes(group = factor(Income_Group_5), colour = factor(Income_Group_5), linetype = factor(Income_Group_5)))+
-    theme_bw()+
-    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 35), legend.position = "bottom", panel.border = element_rect(size = 1.5), panel.grid.major = element_line(size = 1), strip.text = element_text(size = 25), strip.text.y = element_text(angle = 180))+
-    geom_point(aes(x = median.x, y = median.y, group = factor(Income_Group_5), fill = factor(Income_Group_5)), shape = 21, size = 5)+
-    geom_smooth(aes(x = burden_CO2_within_per_capita, y = share), size = 1, method = "loess", span = adjust_0, se = FALSE)+
-    xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", linetype = "")+
-    scale_y_continuous(breaks = c(0,0.0005,0.01), labels = scales::percent_format(accuracy = 0.1), expand = c(0,0))+
-    scale_x_continuous(expand = c(0,0), labels = scales::percent_format(accuracy = 1), breaks = seq(0,0.08, 0.02))+
-    coord_cartesian(xlim = c(0,0.085), ylim = c(0,0.01))+
-    #geom_segment(aes(x = median, xend = median, y = 0, yend = 100, colour = factor(Income_Group_5), linetype = factor(Income_Group_5)), size = 1)+
-    scale_colour_manual(values = c("#BC3C29FF","#424242","#000000",  "#A4A4A4", "#0072B5FF"))+
-    scale_fill_manual(values = c("#BC3C29FF","#424242","#000000",  "#A4A4A4", "#0072B5FF"))+
-    scale_linetype_manual(values = c("solid", "dashed", "solid", "dotdash", "solid"))+
-    ggtitle(Country.Name)+
-    guides(fill = fill0, colour = fill0, linetype = fill0)
-  
-  P_2 <- ggplot(Incidence.X2.1, aes(group = factor(Income_Group_5), colour = factor(Income_Group_5), linetype = factor(Income_Group_5)))+
-    theme_bw()+
-    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 35), legend.position = "bottom", panel.border = element_rect(size = 1.5), panel.grid.major = element_line(size = 1), strip.text = element_text(size = 25), strip.text.y = element_text(angle = 180))+
-    geom_point(aes(x = median.x, y = median.y, group = factor(Income_Group_5), fill = factor(Income_Group_5)), shape = 21, size = 5)+
-    geom_smooth(aes(x = burden_CO2_within_per_capita, y = share), size = 1, method = "loess", span = adjust_0, se = FALSE)+
-    xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", linetype = "")+
-    scale_y_continuous(breaks = c(0,0.005,0.01), expand = c(0,0), labels = scales::percent_format(accuracy = 0.1))+
-    scale_x_continuous(expand = c(0,0), labels = scales::percent_format(accuracy = 1), breaks = seq(0,0.08, 0.02))+
-    coord_cartesian(xlim = c(0,0.085), ylim = c(0,0.01))+
-    #geom_segment(aes(x = median, xend = median, y = 0, yend = 100, colour = factor(Income_Group_5), linetype = factor(Income_Group_5)), size = 1)+
-    scale_colour_manual(values = c("#BC3C29FF","#424242","#000000",  "#A4A4A4", "#0072B5FF"))+
-    scale_fill_manual(values = c("#BC3C29FF","#424242","#000000",  "#A4A4A4", "#0072B5FF"))+
-    scale_linetype_manual(values = c("solid", "dashed", "solid", "dotdash", "solid"))+
-    ggtitle(Country.Name)+
-    guides(fill = fill0, colour = fill0, linetype = fill0)
+
+  max_median <- max(Incidence.X3.1$median.x)
+  min_median <- min(Incidence.X3.1$median.x)
   
   P_3 <- ggplot(Incidence.X3.1, aes(group = factor(Income_Group_5), colour = factor(Income_Group_5), linetype = factor(Income_Group_5)))+
     theme_bw()+
-    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 35), legend.position = "bottom", panel.border = element_rect(size = 1.5), panel.grid.major = element_line(size = 1), strip.text = element_text(size = 25), strip.text.y = element_text(angle = 180))+
-    geom_smooth(aes(x = burden_CO2_within_per_capita, y = share), size = 1, method = "loess", n = 160, span = adjust_0, se = FALSE, fullrange = TRUE)+
-    geom_point(aes(x = median.x, y = median.y, group = factor(Income_Group_5), fill = factor(Income_Group_5)), shape = 21, size = 5, colour = "black")+
+    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 7), legend.position = "bottom", strip.text = element_text(size = 7), strip.text.y = element_text(angle = 180), panel.grid.major = element_line(size = 0.3), panel.grid.minor = element_blank(), axis.ticks = element_line(size = 0.2),
+          legend.text = element_text(size = 7), legend.title = element_text(size = 7), plot.margin = unit(c(0.1,0.1,0,0), "cm"), panel.border = element_rect(size = 0.3))+
+    annotate("rect", xmin = min_median, xmax = max_median, ymin = 0, ymax = 0.11, alpha = 0.5, fill = "grey")+
+    annotate("segment", x = min_median, xend = max_median, y = 0.098, yend = 0.098, arrow = arrow(ends = "both", angle = 90, length = unit (.05, "cm")), size = 0.2)+
+    annotate("text", x = (min_median + max_median)/2, y = 0.101, label = "paste(Delta, V)", parse = TRUE, size = 1.5)+
+    geom_point(aes(x = median.x, y = median.y, group = factor(Income_Group_5), fill = factor(Income_Group_5)), shape = 21, size = 1.3, stroke = 0.2, colour = "black")+
+    geom_smooth(aes(x = burden_CO2_within_per_capita, y = share), size = 0.3, method = "loess", n = 160, span = adjust_0, se = FALSE, fullrange = TRUE)+
     xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", linetype = "", fill = "")+
     scale_y_continuous(breaks = c(0,0.05,0.1), expand = c(0,0), labels = scales::percent_format(accuracy = 1))+
     scale_x_continuous(expand = c(0,0), labels = scales::percent_format(accuracy = 1), breaks = seq(0,0.08, 0.02))+
-    coord_cartesian(xlim = c(0,0.085), ylim = c(0,0.1))+
+    coord_cartesian(xlim = c(0,0.085), ylim = c(0,0.105))+
     #geom_segment(aes(x = median, xend = median, y = 0, yend = 100, colour = factor(Income_Group_5), linetype = factor(Income_Group_5)), size = 1)+
-    scale_colour_manual(  values = c("#BC3C29FF","#424242","#000000",  "#A4A4A4", "#0072B5FF"))+
-    scale_fill_manual(    values = c("#BC3C29FF","#424242","#000000",  "#A4A4A4", "#0072B5FF"))+
-    scale_linetype_manual(values = c("solid", "dashed", "solid", "dotdash", "solid"))+
+    scale_colour_manual(  values = c("#BC3C29FF","#7876B1FF","#000000","#20854EFF",   "#0072B5FF"))+
+    scale_fill_manual(    values = c("#BC3C29FF","#7876B1FF","#000000","#20854EFF",   "#0072B5FF"))+
+    scale_linetype_manual(values = c("solid", "dashed", "dashed", "dashed", "solid"))+
     ggtitle(Country.Name)+
-    #guides(fill = FALSE, colour = guide_legend("Expenditure Quintile"), linetype = guide_legend("Expenditure Quintile"))
+    #guides(fill = guide_legend("Expenditure Quintile"), colour = guide_legend("Expenditure Quintile"), linetype = guide_legend("Expenditure Quintile"))
     guides(fill = fill0, colour = fill0, linetype = fill0)
   
   Incidence.X.4 <- rbind(Incidence.X1.1, Incidence.X2.1)%>%
@@ -592,13 +718,14 @@ plotting_ten.1 <- function(Incidence.X, Country.Name, fill0 = FALSE, ATY = eleme
   
   P_4 <- ggplot(Incidence.X.4, aes(colour = factor(Income_Group_5), linetype = factor(Urban)))+
     theme_bw()+
-    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 35), legend.position = "bottom", panel.border = element_rect(size = 1.5), panel.grid.major = element_line(size = 1), strip.text = element_text(size = 25), strip.text.y = element_text(angle = 180))+
-    geom_smooth(aes(x = burden_CO2_within_per_capita, y = share), size = 1, method = "loess", span = adjust_0, se = FALSE, n = 160, fullrange = TRUE)+
-    geom_point(aes(x = median.x, y = median.y, fill = factor(Income_Group_5), alpha = factor(Urban)), shape = 21, size = 5, colour = "black")+
+    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 7), legend.position = "bottom", strip.text = element_text(size = 7), strip.text.y = element_text(angle = 180), panel.grid.major = element_line(size = 0.3), panel.grid.minor = element_blank(), axis.ticks = element_line(size = 0.2),
+          legend.text = element_text(size = 7), legend.title = element_text(size = 7), plot.margin = unit(c(0.1,0.1,0,0), "cm"), panel.border = element_rect(size = 0.3))+
+    geom_smooth(aes(x = burden_CO2_within_per_capita, y = share), size = 0.3, method = "loess", span = adjust_0, se = FALSE, n = 160, fullrange = TRUE)+
+    geom_point(aes(x = median.x, y = median.y, fill = factor(Income_Group_5), alpha = factor(Urban)), shape = 21, size = 1.3, stroke = 0.2, colour = "black")+
     xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", linetype = "", fill = "")+
     scale_y_continuous(breaks = c(0,0.05, 0.1), expand = c(0,0), labels = scales::percent_format(accuracy = 1))+
     scale_x_continuous(expand = c(0,0), breaks = seq(0,0.08, 0.02), labels = scales::percent_format(accuracy = 1))+
-    coord_cartesian(xlim = c(0,0.085), ylim = c(0,0.11))+
+    coord_cartesian(xlim = c(0,0.085), ylim = c(0,0.105))+
     #geom_segment(aes(x = median, xend = median, y = 0, yend = 100, colour = factor(Income_Group_5), linetype = factor(Income_Group_5)), size = 1)+
     scale_colour_manual(  values = c("#BC3C29FF", "#0072B5FF"))+
     scale_fill_manual(    values = c("#BC3C29FF", "#0072B5FF"))+
@@ -608,19 +735,19 @@ plotting_ten.1 <- function(Incidence.X, Country.Name, fill0 = FALSE, ATY = eleme
     #guides(fill = guide_legend("Expenditure Quintile"), alpha = FALSE, colour = guide_legend("Expenditure Quintile"))
     guides(fill = fill0, colour = fill0, linetype = fill0, alpha = fill0)
   
-  Files <- list("Plot_1" = P_1, "Plot_2" = P_2, "Plot_3" = P_3, "Plot_4" = P_4)
+  Files <- list("Plot_3" = P_3, "Plot_4" = P_4)
   
   return(Files)
 }
 
-P.10.Ba.3 <- plotting_ten.1(Incidence.Bangladesh.1,  "Bangladesh",  ATY = element_text(size = 20, vjust = 0.1), ATX = element_blank(),         ATT = element_text(size = 25),          XLAB = "", YLAB = "Share of Households per Quintile")$Plot_3
-P.10.Ii.3 <- plotting_ten.1(Incidence.India.1,      adjust_1 = 0.1, "India",       ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_3
-P.10.Io.3 <- plotting_ten.1(Incidence.Indonesia.1,  adjust_1 = 0.1, "Indonesia",   ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_3
-P.10.Pa.3 <- plotting_ten.1(Incidence.Pakistan.1,   adjust_1 = 0.1, "Pakistan",    ATY = element_blank(),                      ATX = element_blank() ,        ATT = element_blank(),          XLAB = "")$Plot_3
-P.10.Ph.3 <- plotting_ten.1(Incidence.Philippines.1, adjust_1 = 0.35, "Philippines", ATY = element_text(size = 20, vjust = 0.1), ATX = element_text(size = 20), ATT = element_text(size = 25),  XLAB = "Carbon Price Incidence", YLAB = "Share of Households per Quintile")$Plot_3
-P.10.Th.3 <- plotting_ten.1(Incidence.Thailand.1,   adjust = 0.15, "Thailand",    ATY = element_blank(),                      ATX = element_text(size = 20), ATT = element_text(size = 25),  XLAB = "Carbon Price Incidence")$Plot_3
-P.10.Tu.3 <- plotting_ten.1(Incidence.Turkey.1,     adjust_1 = 0.12, "Turkey",      ATY = element_blank(),                      ATX = element_text(size = 20), ATT = element_text(size = 25),  XLAB = "Carbon Price Incidence")$Plot_3
-P.10.Vi.3 <- plotting_ten.1(Incidence.Vietnam.1,     "Vietnam",     ATY = element_blank(),                      ATX = element_text(size = 20), ATT = element_text(size = 25),  XLAB = "Carbon Price Incidence")$Plot_3
+P.10.Ba.3 <- plotting_ten.1(Incidence.Bangladesh.1,                    "Bangladesh",  ATY = element_text(size = 6, vjust = 0.1),    ATX = element_blank(),         ATT = element_text(size = 7),          XLAB = "", YLAB = "Share of Households per Quintile")$Plot_3
+P.10.Ii.3 <- plotting_ten.1(Incidence.India.1,       adjust_1 = 0.1,   "India",       ATY = element_blank(),                        ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_3
+P.10.Io.3 <- plotting_ten.1(Incidence.Indonesia.1,   adjust_1 = 0.1,   "Indonesia",   ATY = element_blank(),                        ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_3
+P.10.Pa.3 <- plotting_ten.1(Incidence.Pakistan.1,    adjust_1 = 0.1,   "Pakistan",    ATY = element_blank(),                        ATX = element_blank() ,        ATT = element_blank(),          XLAB = "")$Plot_3
+P.10.Ph.3 <- plotting_ten.1(Incidence.Philippines.1, adjust_1 = 0.35,  "Philippines", ATY = element_text(size = 6, vjust = 0.1),    ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence", YLAB = "Share of Households per Quintile")$Plot_3
+P.10.Th.3 <- plotting_ten.1(Incidence.Thailand.1,    adjust   = 0.15,    "Thailand",    ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_3
+P.10.Tu.3 <- plotting_ten.1(Incidence.Turkey.1,      adjust_1 = 0.12,  "Turkey",      ATY = element_blank(),                        ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_3
+P.10.Vi.3 <- plotting_ten.1(Incidence.Vietnam.1,                       "Vietnam",     ATY = element_blank(),                        ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_3
 
 P.10 <- cowplot::align_plots(P.10.Ba.3, P.10.Ii.3, P.10.Io.3, P.10.Pa.3, P.10.Ph.3, P.10.Th.3, P.10.Tu.3, P.10.Vi.3, align = "hv")
 s.1 <- ggdraw(P.10[[1]])
@@ -632,27 +759,36 @@ s.6 <- ggdraw(P.10[[6]])
 s.7 <- ggdraw(P.10[[7]])
 s.8 <- ggdraw(P.10[[8]])
 
-png("Figure_2_1%d.png", width = 15, height = 16, unit = "cm", res = ppi)
+# png("Figure_2_1%d.png", width = 15, height = 16, unit = "cm", res = ppi)
+# 
+# s.1
+# s.2
+# s.3
+# s.4
+# s.5
+# s.6
+# s.7
+# s.8
+# 
+# dev.off()
 
-s.1
-s.2
-s.3
-s.4
-s.5
-s.6
-s.7
-s.8
+# run this with line 711 uncommented and with line 712 commented
+L.2 <- get_legend(P.10.Ba.3)
 
+Figure_2 <- ggarrange(s.1, s.2, s.3, s.4, s.5, s.6, s.7, s.8, ncol = 4, nrow = 2, common.legend = TRUE, legend.grob = L.2, legend = "bottom")
+
+pdf("Figures/Figure_2.pdf", width = 16.51/2.54, height = 10/2.54)
+Figure_2
 dev.off()
 
-P.10.Ba.4 <- plotting_ten.1(Incidence.Bangladesh.1, adjust_1 = 0.25, "Bangladesh",  ATY = element_text(size = 20, vjust = 0.1), ATX = element_blank(),         ATT = element_text(size = 25),          XLAB = "", YLAB = "Share of Households per Quintile")$Plot_4
+P.10.Ba.4 <- plotting_ten.1(Incidence.Bangladesh.1, adjust_1 = 0.25, "Bangladesh",  ATY = element_text(size = 6, vjust = 0.1), ATX = element_blank(),         ATT = element_text(size = 7),          XLAB = "", YLAB = "Share of Households per Quintile")$Plot_4
 P.10.Ii.4 <- plotting_ten.1(Incidence.India.1,      adjust_1 = 0.12, "India",       ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_4
 P.10.Io.4 <- plotting_ten.1(Incidence.Indonesia.1,  adjust_1 = 0.15, "Indonesia",   ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_4
 P.10.Pa.4 <- plotting_ten.1(Incidence.Pakistan.1,   adjust_1 = 0.15, "Pakistan",    ATY = element_blank(),                      ATX = element_blank() ,        ATT = element_blank(),          XLAB = "")$Plot_4
-P.10.Ph.4 <- plotting_ten.1(Incidence.Philippines.1,adjust_1 = 0.3, "Philippines",  ATY = element_text(size = 20, vjust = 0.1), ATX = element_text(size = 20), ATT = element_text(size = 25),  XLAB = "Carbon Price Incidence", YLAB = "Share of Households per Quintile")$Plot_4
-P.10.Th.4 <- plotting_ten.1(Incidence.Thailand.1,   adjust_1 = 0.15, "Thailand",    ATY = element_blank(),                      ATX = element_text(size = 20), ATT = element_text(size = 25),  XLAB = "Carbon Price Incidence")$Plot_4
-P.10.Tu.4 <- plotting_ten.1(Incidence.Turkey.1,     adjust_1 = 0.15, "Turkey",      ATY = element_blank(),                      ATX = element_text(size = 20), ATT = element_text(size = 25),  XLAB = "Carbon Price Incidence")$Plot_4
-P.10.Vi.4 <- plotting_ten.1(Incidence.Vietnam.1,    adjust_1 = 0.3, "Vietnam",     ATY = element_blank(),                      ATX = element_text(size = 20), ATT = element_text(size = 25),  XLAB = "Carbon Price Incidence")$Plot_4
+P.10.Ph.4 <- plotting_ten.1(Incidence.Philippines.1,adjust_1 = 0.3, "Philippines",  ATY = element_text(size = 6, vjust = 0.1), ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence", YLAB = "Share of Households per Quintile")$Plot_4
+P.10.Th.4 <- plotting_ten.1(Incidence.Thailand.1,   adjust_1 = 0.15, "Thailand",    ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_4
+P.10.Tu.4 <- plotting_ten.1(Incidence.Turkey.1,     adjust_1 = 0.15, "Turkey",      ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_4
+P.10.Vi.4 <- plotting_ten.1(Incidence.Vietnam.1,    adjust_1 = 0.3, "Vietnam",     ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_4
 
 P.10 <- cowplot::align_plots(P.10.Ba.4, P.10.Ii.4, P.10.Io.4, P.10.Pa.4, P.10.Ph.4, P.10.Th.4, P.10.Tu.4, P.10.Vi.4, align = "hv")
 s.1 <- ggdraw(P.10[[1]])
@@ -664,22 +800,32 @@ s.6 <- ggdraw(P.10[[6]])
 s.7 <- ggdraw(P.10[[7]])
 s.8 <- ggdraw(P.10[[8]])
 
-png("Figure_3_1%d.png", width = 15, height = 16, unit = "cm", res = ppi)
+# png("Figure_3_1%d.png", width = 15, height = 16, unit = "cm", res = ppi)
+# 
+# s.1
+# s.2
+# s.3
+# s.4
+# s.5
+# s.6
+# s.7
+# s.8
+# 
+# dev.off()
 
-s.1
-s.2
-s.3
-s.4
-s.5
-s.6
-s.7
-s.8
 
+# run this with line 735 commented and with line 734 uncommented
+L.3 <- get_legend(P.10.Ba.4)
+
+Figure_3 <- ggarrange(s.1, s.2, s.3, s.4, s.5, s.6, s.7, s.8, ncol = 4, nrow = 2, common.legend = TRUE, legend.grob = L.3, legend = "bottom")
+
+pdf("Figures/Figure_3.pdf", width = 16.51/2.54, height = 10/2.54)
+Figure_3
 dev.off()
-
 
 # 6        Non-parametric Engel-Curves                      (Figure 4) ####
 
+# NOTE
 # Confidential data. Access upon reasonable request and subject to approval by local statistics office.
 
 #dec_1_BAN <- read.csv("../Bangladesh_data_for_decomposition_wide_GTAP10_new.csv")%>%
@@ -760,12 +906,13 @@ dec_2_TUR <- transform_0(dec_1_TUR)$t1
 dec_2_VIE <- transform_0(dec_1_VIE)$t1
 
 
-plot_engel <- function(data, Country.Name, fill0 = FALSE, ATY = element_blank(), ATX = element_text(size = 20, hjust = 1), ATT = element_text(size = 25), XLAB = "", YLAB = "", YLIM = 100){
+plot_engel <- function(data, Country.Name, fill0 = FALSE, ATY = element_blank(), ATX = element_text(size = 6, hjust = 1), ATT = element_text(size = 7), XLAB = "", YLAB = "", YLIM = 100){
   
   P <- ggplot(data)+
-    geom_smooth(formula = as.formula (y ~ x), aes(x = Income_Group_100, y = share, weight = hh_weights, colour = factor(type), fill = factor(type)), size = 1, method = "loess", se = TRUE, fullrange = TRUE, span = 0.75)+
+    geom_smooth(formula = as.formula (y ~ x), aes(x = Income_Group_100, y = share, weight = hh_weights, colour = factor(type), fill = factor(type)), size = 0.3, method = "loess", se = TRUE, fullrange = TRUE, span = 0.75)+
     theme_bw()+
-    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 35), legend.position = "bottom", panel.border = element_rect(size = 1.5), panel.grid.major = element_line(size = 1), strip.text = element_text(size = 25), strip.text.y = element_text(angle = 180))+
+    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 7), legend.position = "bottom", strip.text = element_text(size = 7), strip.text.y = element_text(angle = 180), panel.grid.major = element_line(size = 0.3), panel.grid.minor = element_blank(), axis.ticks = element_line(size = 0.2),
+          legend.text = element_text(size = 7), legend.title = element_text(size = 7), plot.margin = unit(c(0.1,0.1,0,0), "cm"), panel.border = element_rect(size = 0.3))+
     xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", linetype = "")+
     scale_y_continuous(labels = scales::percent_format(accuracy = 1), expand = c(0,0))+
     scale_x_continuous(expand = c(0,0), breaks = seq(0,100,25))+
@@ -773,20 +920,21 @@ plot_engel <- function(data, Country.Name, fill0 = FALSE, ATY = element_blank(),
     scale_colour_npg(name = "", labels = c("Biomass", "Coal", "Other Cooking Fuels", "Electricity", "Transport Fuels"))+
     scale_fill_npg  (name = "", labels = c("Biomass", "Coal", "Other Cooking Fuels", "Electricity", "Transport Fuels"))+
     ggtitle(Country.Name)+
-    guides(colour = guide_legend(nrow = 1), fill = guide_legend(nrow = 1))+
+    #guides(colour = guide_legend(nrow = 1), fill = guide_legend(nrow = 1))+
+    guides(fill = fill0, colour = fill0, linetype = fill0)+
     labs(fill = "", colour = "")
-  #guides(fill = fill0, colour = fill0, linetype = fill0)
+
   
   return(P)
   
 }
 
-P.11.BAN <- plot_engel(dec_2_BAN, "Bangladesh",  YLAB = "Expenditure Share", YLIM = 0.07, ATY = element_text(size = 20, vjust = 0.1), ATX = element_blank())
+P.11.BAN <- plot_engel(dec_2_BAN, "Bangladesh",  YLAB = "Expenditure Share", YLIM = 0.07, ATY = element_text(size = 6, vjust = 0.1), ATX = element_blank())
 P.11.INI <- plot_engel(dec_2_INI, "India",       YLIM = 0.07, ATX = element_blank())
 P.11.INO <- plot_engel(dec_2_INO, "Indonesia",   YLIM = 0.07, ATX = element_blank())
 P.11.PAK <- plot_engel(dec_2_PAK, "Pakistan",    YLIM = 0.07, ATX = element_blank())
-P.11.PHI <- plot_engel(dec_2_PHI, "Philippines", YLAB = "Expenditure Share", XLAB = "Expenditure Centile", YLIM = 0.07, ATY = element_text(size = 20, vjust = 0.1))
-P.11.THA <- plot_engel(dec_2_THA, "Thailand",    XLAB = "Expenditure Centile", YLIM = 0.15, ATY = element_text(size = 20, vjust = 0.1))
+P.11.PHI <- plot_engel(dec_2_PHI, "Philippines", YLAB = "Expenditure Share", XLAB = "Expenditure Centile", YLIM = 0.07, ATY = element_text(size = 6, vjust = 0.1))
+P.11.THA <- plot_engel(dec_2_THA, "Thailand",    XLAB = "Expenditure Centile", YLIM = 0.15, ATY = element_text(size = 6, vjust = 0.1))
 P.11.TUR <- plot_engel(dec_2_TUR, "Turkey",      XLAB = "Expenditure Centile", YLIM = 0.07)
 P.11.VIE <- plot_engel(dec_2_VIE, "Vietnam",     XLAB = "Expenditure Centile", YLIM = 0.07)
 
@@ -800,7 +948,462 @@ s.6 <- ggdraw(P.11[[6]])
 s.7 <- ggdraw(P.11[[7]])
 s.8 <- ggdraw(P.11[[8]])
 
-png("Figure_4_%d.png", width = 15, height = 16, unit = "cm", res = ppi)
+# png("Figure_4_%d.png", width = 15, height = 16, unit = "cm", res = ppi)
+# 
+# s.1
+# s.2
+# s.3
+# s.4
+# s.5
+# s.6
+# s.7
+# s.8
+# 
+# dev.off()
+
+# run this with line 922 uncommented and line 923 commented
+L.4 <- get_legend(P.11.BAN)
+
+Figure_4 <- ggarrange(s.1, s.2, s.3, s.4, s.5, s.7, s.8, s.6, ncol = 4, nrow = 2, common.legend = TRUE, legend.grob = L.4, legend = "bottom")
+
+pdf("Figure_4.pdf", width = 16.51/2.54, height = 9.75/2.54)
+Figure_4
+dev.off()
+
+
+# 7        Energy Expenditure Shares                        (Figure 5) ####
+
+# Note:
+
+# Data on Energy Expenditure Shares is not part of this repository (ees_BAN, ees_INI, ees_INO, ees_PAK, ees_PHI, ees_THA, ees_TUR, ees_VIE)
+# Confidential Data. Available upon request and conditional on approval by responsible statistics authority.
+
+fun_15.1 <- function(Incidence_0, Country.Name, YLIM = 0.161, fill0 = FALSE, ATY = element_blank(), ATX = element_text(size = 6, angle = 45, vjust = 0.9, hjust = 1), ATT = element_text(size = 7), XLAB = "", YLAB = ""){
+  
+  y <- Incidence_0 %>%
+    select(hh_id, hh_size, hh_weights, Income_Group_5, type, share)%>%
+    rename(Type = type, Share = share)%>%
+    group_by(Income_Group_5, Type)%>%
+    summarise(y5 = wtd.quantile(Share, probs = 0.05, weights = hh_weights),
+              y25 = wtd.quantile(Share, probs = 0.25, weights = hh_weights),
+              y50 = wtd.quantile(Share, probs = 0.5, weights = hh_weights),
+              y75 = wtd.quantile(Share, probs = 0.75, weights = hh_weights),
+              y95 = wtd.quantile(Share, probs = 0.95, weights = hh_weights),
+              mean = wtd.mean(Share, weights = hh_weights))%>%
+    ungroup()%>%
+    filter(Type != "exp_Energy")%>%
+    filter(Income_Group_5 == 1 | Income_Group_5 == 5)
+  
+  y$Type <- factor(y$Type, levels = c("exp_Electricity", "exp_Cooking", "exp_Transport", "exp_Biomass", "exp_Coal"), labels = c("Electricity", "Cooking", "Transport", "Biomass", "Coal"))
+  
+  
+  Plot_1 <-  ggplot(data = y)+
+    theme_bw()+
+    geom_boxplot(aes(ymin = y5, lower = y25, middle = y50, upper = y75, ymax = y95, x = factor(Type), fill = factor(Income_Group_5)), stat = "identity", position = position_dodge(0.7), outlier.shape = NA, width = 0.5, size = 0.2) +
+    stat_summary(aes(y = mean, group = interaction(Income_Group_5, Type), x = factor(Type)), fun = "mean", geom = "point", position =  position_dodge(0.7), shape = 23, size = 0.6, fill = "white", stroke = 0.2)+
+    coord_cartesian(ylim = c(0.0,YLIM))+
+    scale_y_continuous(label = scales::percent_format(accuracy = 1), expand = c(0,0), breaks = seq(0,0.4, 0.05))+
+    scale_colour_npg()+
+    scale_fill_npg()+
+    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 7), legend.position = "bottom", strip.text = element_text(size = 7), strip.text.y = element_text(angle = 180), panel.grid.major = element_line(size = 0.3), panel.grid.minor = element_blank(), axis.ticks = element_line(size = 0.2),
+          legend.text = element_text(size = 7), legend.title = element_text(size = 7), plot.margin = unit(c(0.1,0.1,0,0), "cm"), panel.border = element_rect(size = 0.3))+
+    xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", linetype = "", fill = "")+
+    guides(fill = guide_legend("Expenditure Quintile"))+
+    guides(fill = fill0, colour = fill0, linetype = fill0)+
+    ggtitle(Country.Name)
+  
+  return(Plot_1)
+}
+
+P.15.1.BAN <- fun_15.1(ees_BAN, "Bangladesh", ATX = element_blank(), ATY = element_text(size = 6, vjust = 0.1), YLAB = "Expenditure Share")
+P.15.1.INI <- fun_15.1(ees_INI, "India"     , ATX = element_blank())
+P.15.1.INO <- fun_15.1(ees_INO, "Indonesia" , ATX = element_blank())
+P.15.1.PAK <- fun_15.1(ees_PAK, "Pakistan"  , ATX = element_blank())
+
+P.15.1.PHI <- fun_15.1(ees_PHI, "Philippines", ATY = element_text(size = 6, vjust = 0.1), YLAB = "Expenditure Share")
+P.15.1.THA <- fun_15.1(ees_THA, "Thailand", YLIM = 0.4, ATY = element_text(size = 6, vjust = 0.1), YLAB = "Expenditure Share")
+P.15.1.TUR <- fun_15.1(ees_TUR, "Turkey")
+P.15.1.VIE <- fun_15.1(ees_VIE, "Vietnam")
+
+P.15.1 <- cowplot::align_plots(P.15.1.BAN, P.15.1.INI, P.15.1.INO, P.15.1.PAK, P.15.1.PHI, P.15.1.THA, P.15.1.TUR, P.15.1.VIE, align = "hv")
+s.1 <- ggdraw(P.15.1[[1]])
+s.2 <- ggdraw(P.15.1[[2]])
+s.3 <- ggdraw(P.15.1[[3]])
+s.4 <- ggdraw(P.15.1[[4]])
+s.5 <- ggdraw(P.15.1[[5]])
+s.6 <- ggdraw(P.15.1[[6]])
+s.7 <- ggdraw(P.15.1[[7]])
+s.8 <- ggdraw(P.15.1[[8]])
+
+# run this with line 1011 uncommented and line 1012 commented 
+L.5 <- get_legend(P.15.1.BAN)
+
+Figure_5 <- ggarrange(s.1, s.2, s.3, s.4, s.5, s.7, s.8, s.6, ncol = 4, nrow = 2, common.legend = TRUE, legend.grob = L.5, legend = "bottom")
+
+pdf("Figures/Figure_5.pdf", width = 16.51/2.54, height = 10.75/2.54)
+Figure_5
+dev.off()
+
+
+# 8        Distribution incl Including Lump Sum Transfers   (Figure 6) ####
+
+calculate_median <- function(x){
+  x <- x %>%
+    group_by(Income_Group_5, Type)%>%
+    arrange(value)%>%
+    mutate(cumsum_shares = cumsum(share))%>%
+    filter(cumsum_shares >= 0.5)%>%
+    slice(which.min(cumsum_shares))%>%
+    ungroup()%>%
+    rename(median = value)%>%
+    select(Income_Group_5, Type, median)
+}
+
+calculate_median_y <- function(x0, xmedian, adjust_0){
+  ggplot_build(ggplot(x0, aes(y = share, x = value, group = interaction(factor(Income_Group_5), Type)))+
+                 geom_smooth(method = "loess", span = adjust_0, se = FALSE, n = 700))$data[[1]]%>%
+    select(x,y,group)%>%
+    mutate(group = ifelse(group == 1, 1, 5))%>%
+    left_join(xmedian, by = c("group" = "Income_Group_5"))%>%
+    mutate(help = median - x)%>%
+    mutate(help_0 = ifelse(help <0, help*-1, help))%>%
+    group_by(group)%>%
+    filter(help_0 == min(help_0))%>%
+    ungroup()%>%
+    rename(Income_Group_5 = group, median.x = x, median.y = y)%>%
+    select(-median, -help, -help_0)%>%
+    select(median.x, median.y, Income_Group_5)
+}
+
+plotting_ten.1 <- function(Incidence.X, Country.Name, fill0 = FALSE, ATY = element_blank(), ATX = element_text(size = 6), ATT = element_text(size = 7), XLAB = "", YLAB = "", YLIM = 0.01, adjust_1 = 0.2){
+  adjust_0 <- adjust_1
+  
+  # Round Values up, calculate households per bins
+  Incidence.X0 <- Incidence.X %>%
+    select(hh_id, hh_weights, Income_Group_5, burden_CO2_within_per_capita, burden_CO2_within_pc_LST_pc)%>%
+    pivot_longer(starts_with("burden"), names_to = "type", values_to = "value")%>%
+    filter(Income_Group_5 == 1 | Income_Group_5 == 5)%>%
+    filter(!is.na(value) & value != "-Inf" & value > -0.5 & value != "Inf" & value < 0.5)%>%
+    #mutate(value = value*(-1))%>%
+    mutate(Type = ifelse(type == "burden_CO2_within_per_capita", "National Carbon Price", "National Carbon Price and equal per capita transfer"),
+           value = round(value,3))%>%
+    group_by(Income_Group_5, Type, value)%>%
+    summarise(weights = sum(hh_weights))%>%
+    ungroup()
+  
+  # Calculate total households
+  IG_weights <- Incidence.X %>%
+    select(hh_id, Income_Group_5, hh_weights)%>%
+    group_by(Income_Group_5)%>%
+    summarise(IG_weights = sum(hh_weights))%>%
+    ungroup()
+  # Calculate Shares
+  Incidence.X1 <- left_join(Incidence.X0, IG_weights)%>%
+    mutate(share = weights/IG_weights)%>%
+    filter(Type == "National Carbon Price")
+  Incidence.X2 <- left_join(Incidence.X0, IG_weights)%>%
+    mutate(share = weights/IG_weights)%>%
+    filter(Type != "National Carbon Price")
+  
+  #Calculate Median
+  Median.X1 <- calculate_median(Incidence.X1)%>%
+    filter(Type == "National Carbon Price")
+  Median.X2 <- calculate_median(Incidence.X2)%>%
+    filter(Type != "National Carbon Price")
+  
+  # Calculate Median Y
+  t.X.1 <- calculate_median_y(Incidence.X1, Median.X1, adjust_0)
+  t.X.2 <- calculate_median_y(Incidence.X2, Median.X2, adjust_0)
+  
+  Incidence.X1.1 <- Incidence.X1 %>%
+    left_join(t.X.1, by = c("Income_Group_5"))
+  Incidence.X2.1 <- Incidence.X2 %>%
+    left_join(t.X.2, by = "Income_Group_5")
+  Incidence.X3.1 <- bind_rows(Incidence.X1.1, Incidence.X2.1)%>%
+    mutate(Label = ifelse(Income_Group_5 == 1 & Type == "National Carbon Price", "National Carbon Price (Expenditure Quintile 1)",
+                          ifelse(Income_Group_5 == "5" & Type == "National Carbon Price", "National Carbon Price (Expenditure Quintile 5)",
+                                 ifelse(Income_Group_5 == "1" & Type == "National Carbon Price and equal per capita transfer", "National Carbon Price and equal per capita Transfer (Expenditure Quintile 1)",
+                                        "National Carbon Price and equal per capita Transfer (Expenditure Quintile 5)"))))
+  
+  P_3 <- ggplot(Incidence.X3.1, aes(colour = Label, linetype = Label))+
+    theme_bw()+
+    geom_vline(aes(xintercept = 0), size = 0.3)+
+    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 7), legend.position = "bottom", strip.text = element_text(size = 7), strip.text.y = element_text(angle = 180), panel.grid.major = element_line(size = 0.3), panel.grid.minor = element_blank(), axis.ticks = element_line(size = 0.2),
+          legend.text = element_text(size = 7), legend.title = element_text(size = 7), plot.margin = unit(c(0.1,0.1,0,0), "cm"), panel.border = element_rect(size = 0.3))+
+    geom_smooth(aes(x = value, y = share, group = Label), size = 0.3, method = "loess", n = 500, span = adjust_0, se = FALSE, fullrange = TRUE)+
+    geom_point(aes(x = median.x, y = median.y, group = Label, fill = Label), shape = 21, size = 1.3, colour = "black", stroke = 0.2)+
+    xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", linetype = "", fill = "")+
+    scale_y_continuous(breaks = c(0,0.05,0.1), expand = c(0,0), labels = scales::percent_format(accuracy = 1))+
+    scale_x_continuous(expand = c(0,0), labels = scales::percent_format(accuracy = 1), breaks = seq(-0.1,0.15, 0.05))+
+    coord_cartesian(xlim = c(-0.085,0.165), ylim = c(0,0.1))+
+    #geom_segment(aes(x = median, xend = median, y = 0, yend = 100, colour = factor(Income_Group_5), linetype = factor(Income_Group_5)), size = 1)+
+    scale_colour_manual(  values = c("#BC3C29FF", "#0072B5FF", "#BC3C29FF", "#0072B5FF"))+
+    scale_fill_manual(    values = c("#BC3C29FF", "#0072B5FF", "#BC3C29FF", "#0072B5FF"))+
+    scale_linetype_manual(values = c("solid", "solid", "dashed", "dashed"))+
+    ggtitle(Country.Name)+
+    #guides(fill = guide_legend("", nrow = 4), colour = guide_legend("", nrow = 4), linetype = guide_legend("", nrow = 4), direction = "vertical")
+    guides(fill = fill0, colour = fill0, linetype = fill0)
+  
+  return(P_3)
+}
+
+P.10.Ba.3 <- plotting_ten.1(Incidence.Bangladesh.2.2.1,  adjust_1 =  0.2,  "Bangladesh",  ATY = element_text(size = 6, vjust = 0.1),  ATX = element_blank(),         ATT = element_text(size = 7),          XLAB = "", YLAB = "Share of Households per Quintile")
+P.10.Ii.3 <- plotting_ten.1(Incidence.India.2.2.1,       adjust_1 =  0.1,  "India",       ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")
+P.10.Io.3 <- plotting_ten.1(Incidence.Indonesia.2.2.1,   adjust_1 =  0.1,  "Indonesia",   ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")
+P.10.Pa.3 <- plotting_ten.1(Incidence.Pakistan.2.2.1,    adjust_1 =  0.1,  "Pakistan",    ATY = element_blank(),                      ATX = element_blank() ,        ATT = element_blank(),          XLAB = "")
+P.10.Ph.3 <- plotting_ten.1(Incidence.Philippines.2.2.1, adjust_1 =  0.35, "Philippines", ATY = element_text(size = 6, vjust = 0.1),  ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Household Budget Change", YLAB = "Share of Households per Quintile")
+P.10.Th.3 <- plotting_ten.1(Incidence.Thailand.2.2.1,    adjust_1 =  0.15, "Thailand",    ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Household Budget Change")
+P.10.Tu.3 <- plotting_ten.1(Incidence.Turkey.2.2.1,      adjust_1 =  0.12, "Turkey",      ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Household Budget Change")
+P.10.Vi.3 <- plotting_ten.1(Incidence.Vietnam.2.2.1,                       "Vietnam",     ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Household Budget Change")
+
+P.10 <- cowplot::align_plots(P.10.Ba.3, P.10.Ii.3, P.10.Io.3, P.10.Pa.3, P.10.Ph.3, P.10.Th.3, P.10.Tu.3, P.10.Vi.3, align = "hv")
+s.1 <- ggdraw(P.10[[1]])
+s.2 <- ggdraw(P.10[[2]])
+s.3 <- ggdraw(P.10[[3]])
+s.4 <- ggdraw(P.10[[4]])
+s.5 <- ggdraw(P.10[[5]])
+s.6 <- ggdraw(P.10[[6]])
+s.7 <- ggdraw(P.10[[7]])
+s.8 <- ggdraw(P.10[[8]])
+
+# run this with line 1070 uncommented and line 1071 commented
+L.7 <- get_legend(P.10.Ba.3)
+
+Figure_6 <- ggarrange(s.1, s.2, s.3, s.4, s.5, s.6, s.7, s.8, ncol = 4, nrow = 2, common.legend = TRUE, legend.grob = L.7, legend = "bottom")
+
+pdf("Figures/Figure_6.pdf", width = 16.51/2.54, height = 11.75/2.54)
+Figure_6
+dev.off()
+
+
+
+
+# MAIN TABLES ####
+
+# Table 1 is purely descriptive
+
+# 9        Vertical vs. Horizontal Effects                  (Table 2 (Table S12, Table S13, Table S14)) ####
+
+vertical_horizontal <- function(Incidence_Country, Country.Name){
+  
+  Incidence.X <- Incidence_Country %>%
+    select(hh_id, hh_weights, burden_CO2_within_per_capita, Income_Group_5)%>%
+    group_by(Income_Group_5)%>%
+    summarise(y1  = wtd.quantile(burden_CO2_within_per_capita, weights = hh_weights, probs = 0.01),  
+              y5  = wtd.quantile(burden_CO2_within_per_capita, weights = hh_weights, probs = 0.05),
+              y20 = wtd.quantile(burden_CO2_within_per_capita, weights = hh_weights, probs = 0.20),
+              y50 = wtd.quantile(burden_CO2_within_per_capita, weights = hh_weights, probs = 0.50),
+              y80 = wtd.quantile(burden_CO2_within_per_capita, weights = hh_weights, probs = 0.80),
+              y95 = wtd.quantile(burden_CO2_within_per_capita, weights = hh_weights, probs = 0.95),
+              y99 = wtd.quantile(burden_CO2_within_per_capita, weights = hh_weights, probs = 0.99),
+              sd =  sqrt(wtd.var(burden_CO2_within_per_capita,      weights = hh_weights)),
+              mean = wtd.mean(burden_CO2_within_per_capita,    weights = hh_weights))%>%
+    ungroup()
+  
+  Incidence.1.1 <- Incidence.X %>%
+    select(Income_Group_5, y5, y95)%>%
+    mutate(dif = y95-y5)%>%
+    select(-y5, - y95)%>%
+    spread(key = Income_Group_5, value = dif)%>%
+    mutate(Country = Country.Name)%>%
+    select(Country, everything())
+  
+  Incidence.1.2 <- Incidence.X %>%
+    select(Income_Group_5, y20, y80)%>%
+    mutate(dif = y80-y20)%>%
+    select(-y20, - y80)%>%
+    spread(key = Income_Group_5, value = dif)%>%
+    mutate(Country = Country.Name)%>%
+    select(Country, everything())
+  
+  Incidence.1.3 <- Incidence.X %>%
+    select(Income_Group_5, y1, y99)%>%
+    mutate(dif = y99-y1)%>%
+    select(-y1, - y99)%>%
+    spread(key = Income_Group_5, value = dif)%>%
+    mutate(Country = Country.Name)%>%
+    select(Country, everything())
+  
+  Incidence.1.4 <- Incidence.X %>%
+    select(Income_Group_5, sd)%>%
+    spread(key = Income_Group_5, value = sd)%>%
+    mutate(Country = Country.Name)%>%
+    select(Country, everything())
+  
+  Incidence.2 <- Incidence.X %>%
+    select(Income_Group_5, y50)%>%
+    mutate(fact = ifelse(y50 == max(y50),1,
+                         ifelse(y50 == min(y50),2,0)))%>%
+    filter(fact != 0)
+  
+  Incidence.2.1 <- Incidence.2 %>%
+    filter(fact == 1)%>%
+    rename(Quintile_Max = Income_Group_5, max = y50)%>%
+    select(-fact)%>%
+    mutate(Country = Country.Name)
+  
+  Incidence.2.2 <- Incidence.2 %>%
+    filter(fact == 2)%>%
+    rename(Quintile_Min = Income_Group_5, min = y50)%>%
+    select(-fact)%>%
+    mutate(Country = Country.Name)
+  
+  Incidence.2.0 <- left_join(Incidence.2.1, Incidence.2.2, by = "Country")%>%
+    select(Country, Quintile_Min, Quintile_Max, min, max)%>%
+    mutate(Difference = max - min)%>%
+    select(-max, -min)
+  
+  Incidence.3 <- Incidence.X %>%
+    select(Income_Group_5, mean)%>%
+    mutate(fact = ifelse(mean == max(mean),1,
+                         ifelse(mean == min(mean),2,0)))%>%
+    filter(fact != 0)
+  
+  Incidence.3.1 <- Incidence.3 %>%
+    filter(fact == 1)%>%
+    rename(Quintile_Max = Income_Group_5, max = mean)%>%
+    select(-fact)%>%
+    mutate(Country = Country.Name)
+  
+  Incidence.3.2 <- Incidence.3 %>%
+    filter(fact == 2)%>%
+    rename(Quintile_Min = Income_Group_5, min = mean)%>%
+    select(-fact)%>%
+    mutate(Country = Country.Name)
+  
+  Incidence.3.0 <- left_join(Incidence.3.1, Incidence.3.2, by = "Country")%>%
+    select(Country, Quintile_Min, Quintile_Max, min, max)%>%
+    mutate(Difference = max - min)%>%
+    select(-max, -min)
+  
+  
+  Incidence_0.1 <- left_join(Incidence.2.0, Incidence.1.1, by = "Country")
+  Incidence_0.2 <- left_join(Incidence.2.0, Incidence.1.2, by = "Country")
+  Incidence_0.3 <- left_join(Incidence.2.0, Incidence.1.3, by = "Country")
+  Incidence_0.4 <- left_join(Incidence.3.0, Incidence.1.4, by = "Country")
+  
+  Incidence_0 <- list("5_95" = Incidence_0.1, "20_80" = Incidence_0.2,
+                      "1_99" = Incidence_0.3, "sd"   = Incidence_0.4)
+  
+  return(Incidence_0)
+}
+
+vh_BAN_0 <- vertical_horizontal(Incidence.Bangladesh, "Bangladesh"  )
+vh_INI_0 <- vertical_horizontal(Incidence.India,      "India"       )
+vh_INO_0 <- vertical_horizontal(Incidence.Indonesia,  "Indonesia"   )
+vh_PAK_0 <- vertical_horizontal(Incidence.Pakistan,   "Pakistan"    )
+vh_PHI_0 <- vertical_horizontal(Incidence.Philippines, "Philippines")
+vh_THA_0 <- vertical_horizontal(Incidence.Thailand,   "Thailand"    )
+vh_TUR_0 <- vertical_horizontal(Incidence.Turkey,     "Turkey"      )
+vh_VIE_0 <- vertical_horizontal(Incidence.Vietnam,    "Vietnam"     )
+
+vh_BAN <- vh_BAN_0$'5_95'
+vh_INI <- vh_INI_0$'5_95'
+vh_INO <- vh_INO_0$'5_95'
+vh_PAK <- vh_PAK_0$'5_95'
+vh_PHI <- vh_PHI_0$'5_95'
+vh_THA <- vh_THA_0$'5_95'
+vh_TUR <- vh_TUR_0$'5_95'
+vh_VIE <- vh_VIE_0$'5_95'
+
+vh_total_5 <- rbind(vh_BAN, vh_INI, vh_INO, vh_PAK, vh_PHI, vh_THA, vh_TUR, vh_VIE)
+
+vh_BAN <- vh_BAN_0$'1_99'
+vh_INI <- vh_INI_0$'1_99'
+vh_INO <- vh_INO_0$'1_99'
+vh_PAK <- vh_PAK_0$'1_99'
+vh_PHI <- vh_PHI_0$'1_99'
+vh_THA <- vh_THA_0$'1_99'
+vh_TUR <- vh_TUR_0$'1_99'
+vh_VIE <- vh_VIE_0$'1_99'
+
+vh_total_1 <- rbind(vh_BAN, vh_INI, vh_INO, vh_PAK, vh_PHI, vh_THA, vh_TUR, vh_VIE)
+
+vh_BAN <- vh_BAN_0$'20_80'
+vh_INI <- vh_INI_0$'20_80'
+vh_INO <- vh_INO_0$'20_80'
+vh_PAK <- vh_PAK_0$'20_80'
+vh_PHI <- vh_PHI_0$'20_80'
+vh_THA <- vh_THA_0$'20_80'
+vh_TUR <- vh_TUR_0$'20_80'
+vh_VIE <- vh_VIE_0$'20_80'
+
+vh_total_20 <- rbind(vh_BAN, vh_INI, vh_INO, vh_PAK, vh_PHI, vh_THA, vh_TUR, vh_VIE)
+
+vh_BAN <- vh_BAN_0$'sd'
+vh_INI <- vh_INI_0$'sd'
+vh_INO <- vh_INO_0$'sd'
+vh_PAK <- vh_PAK_0$'sd'
+vh_PHI <- vh_PHI_0$'sd'
+vh_THA <- vh_THA_0$'sd'
+vh_TUR <- vh_TUR_0$'sd'
+vh_VIE <- vh_VIE_0$'sd'
+
+vh_total_var <- rbind(vh_BAN, vh_INI, vh_INO, vh_PAK, vh_PHI, vh_THA, vh_TUR, vh_VIE)
+
+vh_total <- list(vh_total_5, vh_total_1, vh_total_20, vh_total_var)
+write.xlsx(vh_total, "Figures/Table_2_Vertical_horizontal_equity.xlsx", append = TRUE)
+
+# SUPPLEMENTARY FIGURES ####
+# 10       Coal Pipeline                                    (Figure S1) ####
+
+# cp <- 
+# DOWNLOAD FROM https://docs.google.com/spreadsheets/d/1dxEObsymdexLIsUM0bSm2SGibNr_GIPT51nu_f7kXxc/edit#gid=0
+
+cp_0 <- cp %>%
+  select(Country, 'Announced.+.Pre-permit.+.Permitted', 'Construction', 'Operating')%>%
+  rename(announced_permitted = 'Announced.+.Pre-permit.+.Permitted')%>%
+  filter(Country == "China" | Country == "India" | Country == "Total" | Country == "Indonesia" | Country == "Pakistan" |
+           Country == "Bangladesh" | Country == "Vietnam" | Country == "Thailand" | Country == "Turkey" | Country == "Philippines")
+
+cp_1 <- cp_0 %>%
+  filter(Country != "Total" & Country != "China")%>%
+  mutate(Country = reorder(Country, -Operating))%>%
+  pivot_longer(-Country, "Type", values_to = "MW")%>%
+  mutate(Type = factor(Type, levels = c("Operating", "Construction", "announced_permitted")))%>%
+  mutate(GW = MW/1000)
+
+plot_13 <- function(Country.Name, YLIM, XLIM, YLAB = "", XLAB = "", ATX = element_blank(), ATY = element_text(size = 20, vjust = 0.1), ATT = element_text(size = 25), fill0 = FALSE){
+  
+  cp_2 <- cp_1 %>%
+    filter(Country == Country.Name)
+  
+  P <- ggplot(cp_2)+
+    geom_col(aes(fill = Type, x = Type, y = GW), colour = "black", width = 0.75)+
+    scale_fill_npg(name = "", labels = c("Operating", "Construction", "Announced / Permitted"))+
+    xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", fill = "")+
+    theme_bw()+
+    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 35), panel.border = element_rect(size = 1.5), panel.grid.major = element_line(size = 1), strip.text = element_text(size = 25), strip.text.y = element_text(angle = 180))+
+    coord_cartesian(ylim = c(0,YLIM+ 2))+
+    scale_y_continuous(expand = c(0,0), breaks = c(0,signif(YLIM, 0), signif(YLIM, 0)/2))+
+    #guides(colour = fill0, fill = guide_legend(ncol = 1))+
+    guides(fill = fill0, colour = fill0)+
+    ggtitle(Country.Name)
+  
+  return(P)
+}
+
+P.13.BAN <- plot_13("Bangladesh", YLIM = 20, YLAB = "Capacity in GW")
+P.13.INI <- plot_13("India",      YLIM = 250, YLAB = "Capacity in GW")
+P.13.INO <- plot_13("Indonesia",  YLIM = 40, YLAB = "Capacity in GW")
+P.13.PAK <- plot_13("Pakistan",   YLIM = 20, ATY = element_blank())
+P.13.PHI <- plot_13("Philippines",YLIM = 20, ATY = element_blank())
+P.13.THA <- plot_13("Thailand",   YLIM = 10, YLAB = "Capacity in GW")
+P.13.TUR <- plot_13("Turkey",     YLIM = 40, ATY = element_blank())
+P.13.VIE <- plot_13("Vietnam",    YLIM = 40, ATY = element_blank())
+
+P.13 <- cowplot::align_plots(P.13.BAN, P.13.INI, P.13.INO, P.13.PAK, P.13.PHI, P.13.THA, P.13.TUR, P.13.VIE, align = "hv")
+s.1 <- ggdraw(P.13[[1]])
+s.2 <- ggdraw(P.13[[2]])
+s.3 <- ggdraw(P.13[[3]])
+s.4 <- ggdraw(P.13[[4]])
+s.5 <- ggdraw(P.13[[5]])
+s.6 <- ggdraw(P.13[[6]])
+s.7 <- ggdraw(P.13[[7]])
+s.8 <- ggdraw(P.13[[8]])
+
+
+png("Coal Pipeline/Figure_S1_%d.png", width = 15, height = 15, unit = "cm", res = ppi)
 
 s.1
 s.2
@@ -813,16 +1416,90 @@ s.8
 
 dev.off()
 
-# L.1 <- ggdraw(get_legend(P.11.BAN))
+# L.1 <- ggdraw(get_legend(P.13.BAN))
 # 
-# png("Legend_Engel_%d.png", width = 7*ppi, height = 2*ppi, res = ppi)
+# png("Coal Pipeline/Legend.png", width = 4*ppi, height = 4*ppi, res = ppi)
 # 
 # L.1
 # 
 # dev.off()
 
+cp_2 <- cp %>%
+  select(Country, 'Announced.+.Pre-permit.+.Permitted', 'Construction', 'Operating')%>%
+  rename(announced_permitted = 'Announced.+.Pre-permit.+.Permitted')%>%
+  select(-Operating)%>%
+  mutate(Merge = announced_permitted + Construction)%>%
+  filter(Merge != 0)%>%
+  arrange(Merge)
 
-# 7        Non-parametric Engel-Curves on expenditure types (Figure S3) ####
+cp_3 <- cp %>%
+  select(Country, Operating)%>%
+  filter(Operating != 0)%>%
+  arrange(Operating)
+
+# write.xlsx(cp_2, "Coal Pipeline/Summary_1.xlsx")
+# write.xlsx(cp_3, "Coal Pipeline/Operating.xlsx")
+
+# 11       Analysis on Shares on Electricity                (Figure S2) ####
+
+ely_ban <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_BAN.csv")
+ely_ini <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_INI.csv")
+ely_ino <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_INO.csv")
+ely_pak <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_PAK.csv")
+ely_phi <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_PHI.csv")
+ely_tha <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_THA.csv")
+ely_tur <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_TUR.csv")
+ely_vie <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_VIE.csv")
+
+pre_ely_analysis_1 <- function(ely, Country.Name){
+  ely_1 <- ely %>%
+    select(hh_id, hh_size, hh_weights, Urban, Income_Group_5, share_ely)
+  ely_2 <- ely_1 %>%
+    mutate(Urban = "National")
+  ely_3 <- rbind(ely_1, ely_2)%>%
+    mutate(country = Country.Name)%>%
+    select(-Income_Group_5)
+}
+
+ely_ban_1 <- pre_ely_analysis_1(ely_ban, "Bangladesh")
+ely_ini_1 <- pre_ely_analysis_1(ely_ini, "India")
+ely_ino_1 <- pre_ely_analysis_1(ely_ino, "Indonesia")
+ely_pak_1 <- pre_ely_analysis_1(ely_pak, "Pakistan")
+ely_phi_1 <- pre_ely_analysis_1(ely_phi, "Philippines")
+ely_tha_1 <- pre_ely_analysis_1(ely_tha, "Thailand")
+ely_tur_1 <- pre_ely_analysis_1(ely_tur, "Turkey")
+ely_vie_1 <- pre_ely_analysis_1(ely_vie, "Vietnam")
+
+ely_all_1 <- rbind(ely_ban_1, ely_ini_1, ely_ino_1, ely_pak_1, ely_phi_1, ely_tha_1, ely_tur_1, ely_vie_1)%>%
+  mutate(Urban = ifelse(Urban == "urban", "Urban", ifelse(Urban == "rural", "Rural", Urban)))%>%
+  group_by(country, Urban)%>%
+  summarise(
+    y5  = wtd.quantile(share_ely, weights = hh_weights, probs = 0.05),
+    y25 = wtd.quantile(share_ely, weights = hh_weights, probs = 0.25),
+    y50 = wtd.quantile(share_ely, weights = hh_weights, probs = 0.5),
+    y75 = wtd.quantile(share_ely, weights = hh_weights, probs = 0.75),
+    y95 = wtd.quantile(share_ely, weights = hh_weights, probs = 0.95),
+    mean = wtd.mean(   share_ely, weights = hh_weights))%>%
+  ungroup()
+
+P.2 <- ggplot(ely_all_1, aes(x = Urban, fill = Urban))+
+  geom_boxplot(aes(ymin = y5, lower = y25, middle = y50, upper = y75, ymax = y95), stat = "identity", position = position_dodge(0.5), outlier.shape = NA, width = 0.5) +
+  geom_point(aes(y = mean), shape = 23, size = 1.5, fill = "white")+
+  theme_bw()+
+  facet_wrap(~ country, nrow = 1, strip.position = "bottom")+
+  coord_cartesian(ylim = c(0,0.17))+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))+
+  ylab("Share of Electricity Expenditures over all Expenditures")+
+  scale_fill_npg()+xlab("")+guides(fill =guide_legend(title = NULL))+
+  theme(legend.background = element_rect(fill = "white", colour = "black"),legend.position = c(0.2, 0.8), panel.border = element_rect(size = 1), legend.text = element_text(size = 12), strip.text = element_text(size = 9), strip.background = element_rect(colour = "black", size = 1), axis.text.y = element_text(size = 9), axis.text.x = element_blank(), axis.ticks = element_blank(), axis.title.y = element_text(size = 10))
+
+png("Figure_S2_%d.png", width = 22, height = 12, unit = "cm", res = ppi)
+
+P.2
+
+dev.off()  
+
+# 12       Non-parametric Engel-Curves on expenditure types (Figure S3) ####
 
 transform_0 <- read.xlsx("Items_Categories_Concordance.xlsx")%>%
   select(-Explanation)
@@ -934,146 +1611,7 @@ dev.off()
 # 
 # dev.off()
 
-# 8        Boxplots on Expenditure Shares                   (Figure 5) ####
-
-fun_15 <- function(Incidence_0, Country.Name, fill0 = FALSE, ATY = element_blank(), ATX = element_text(size = 20), ATT = element_text(size = 25), XLAB = "", YLAB = ""){
-  
-  # Confidential Data. Available upon request and conditional on approval by responsible statistics authority.
-  t <- read_csv(sprintf("../Expenditure_types_%s.csv", Country.Name))
-  
-  y <- left_join(Incidence_0, t, by = "hh_id")%>%
-    select(hh_id, hh_size, hh_weights, expenditures_USD_2014, Income_Group_5, starts_with("share"))%>%
-    pivot_longer(starts_with("share"), names_to = "Type", values_to = "Share")%>%
-    group_by(Income_Group_5, Type)%>%
-    summarise(y5 = wtd.quantile(Share, probs = 0.05, weights = hh_weights),
-              y25 = wtd.quantile(Share, probs = 0.25, weights = hh_weights),
-              y50 = wtd.quantile(Share, probs = 0.5, weights = hh_weights),
-              y75 = wtd.quantile(Share, probs = 0.75, weights = hh_weights),
-              y95 = wtd.quantile(Share, probs = 0.95, weights = hh_weights),
-              mean = wtd.mean(Share, weights = hh_weights))%>%
-    ungroup()%>%
-    filter(Income_Group_5 == 1 | Income_Group_5 == 5)
-  
-  y$Type <- factor(y$Type, levels = c("share_energy", "share_food", "share_goods", "share_services"), labels = c("Energy", "Food", "Goods", "Services"))
-  
-  
-  Plot_1 <-  ggplot(data = y)+
-    theme_bw()+
-    geom_boxplot(aes(ymin = y5, lower = y25, middle = y50, upper = y75, ymax = y95, x = factor(Type), fill = factor(Income_Group_5)), stat = "identity", position = position_dodge(0.7), outlier.shape = NA, width = 0.5) +
-    stat_summary(aes(y = mean, group = interaction(Income_Group_5, Type), x = factor(Type)), fun = "mean", geom = "point", position =  position_dodge(0.7), shape = 23, size = 2, fill = "white")+
-    coord_cartesian(ylim = c(0.0,0.85))+
-    scale_y_continuous(label = scales::percent_format(accuracy = 1), expand = c(0,0), breaks = seq(0,0.8, 0.2))+
-    scale_colour_npg()+
-    scale_fill_npg()+
-    theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 35), legend.position = "bottom", panel.border = element_rect(size = 1.5), panel.grid.major = element_line(size = 1), strip.text = element_text(size = 25), strip.text.y = element_text(angle = 180), axis.ticks.y = element_blank())+
-    xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", linetype = "", fill = "")+
-    ggtitle(Country.Name)+
-    #guides(fill = guide_legend("Expenditure Quintile"))#+
-    guides(fill = fill0, colour = fill0, linetype = fill0)
-  
-  return(Plot_1)
-}
-
-P.15.BAN <- fun_15(Incidence.Bangladesh,  "Bangladesh", ATY = element_text(size = 20, vjust = 0.1), YLAB = "Expenditure Share")
-P.15.INI <- fun_15(Incidence.India,       "India"     )
-P.15.INO <- fun_15(Incidence.Indonesia,   "Indonesia" )
-P.15.PAK <- fun_15(Incidence.Pakistan,    "Pakistan", )
-P.15.PHI <- fun_15(Incidence.Philippines, "Philippines", ATY = element_text(size = 20, vjust = 0.1), YLAB = "Expenditure Share")
-P.15.THA <- fun_15(Incidence.Thailand,    "Thailand")
-P.15.TUR <- fun_15(Incidence.Turkey,      "Turkey")
-P.15.VIE <- fun_15(Incidence.Vietnam,     "Vietnam")
-
-P.15 <- cowplot::align_plots(P.15.BAN, P.15.INI, P.15.INO, P.15.PAK, P.15.PHI, P.15.THA, P.15.TUR, P.15.VIE, align = "hv")
-s.1 <- ggdraw(P.15[[1]])
-s.2 <- ggdraw(P.15[[2]])
-s.3 <- ggdraw(P.15[[3]])
-s.4 <- ggdraw(P.15[[4]])
-s.5 <- ggdraw(P.15[[5]])
-s.6 <- ggdraw(P.15[[6]])
-s.7 <- ggdraw(P.15[[7]])
-s.8 <- ggdraw(P.15[[8]])
-
-png("Figure_6_%d.png", width = 15, height = 16, unit = "cm", res = ppi)
-
-s.1
-s.2
-s.3
-s.4
-s.5
-s.6
-s.7
-s.8
-
-dev.off()
-
-# L.1 <- ggdraw(get_legend(P.15.BAN))
-# 
-# png("Boxplots/Legend_all_15_%d.png", width = 5*ppi, height = 2*ppi, res = ppi)
-# 
-# L.1
-# 
-# dev.off()
-
-# 9        Analysis on Shares on Electricity                (Figure S2) ####
-
-ely_ban <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_BAN.csv")
-ely_ini <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_INI.csv")
-ely_ino <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_INO.csv")
-ely_pak <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_PAK.csv")
-ely_phi <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_PHI.csv")
-ely_tha <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_THA.csv")
-ely_tur <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_TUR.csv")
-ely_vie <- read_csv("Aggregated_Data/Electricity/electricity_share_analysis_VIE.csv")
-
-pre_ely_analysis_1 <- function(ely, Country.Name){
-  ely_1 <- ely %>%
-    select(hh_id, hh_size, hh_weights, Urban, Income_Group_5, share_ely)
-  ely_2 <- ely_1 %>%
-    mutate(Urban = "National")
-  ely_3 <- rbind(ely_1, ely_2)%>%
-    mutate(country = Country.Name)%>%
-    select(-Income_Group_5)
-}
-
-ely_ban_1 <- pre_ely_analysis_1(ely_ban, "Bangladesh")
-ely_ini_1 <- pre_ely_analysis_1(ely_ini, "India")
-ely_ino_1 <- pre_ely_analysis_1(ely_ino, "Indonesia")
-ely_pak_1 <- pre_ely_analysis_1(ely_pak, "Pakistan")
-ely_phi_1 <- pre_ely_analysis_1(ely_phi, "Philippines")
-ely_tha_1 <- pre_ely_analysis_1(ely_tha, "Thailand")
-ely_tur_1 <- pre_ely_analysis_1(ely_tur, "Turkey")
-ely_vie_1 <- pre_ely_analysis_1(ely_vie, "Vietnam")
-
-ely_all_1 <- rbind(ely_ban_1, ely_ini_1, ely_ino_1, ely_pak_1, ely_phi_1, ely_tha_1, ely_tur_1, ely_vie_1)%>%
-  mutate(Urban = ifelse(Urban == "urban", "Urban", ifelse(Urban == "rural", "Rural", Urban)))%>%
-  group_by(country, Urban)%>%
-  summarise(
-    y5  = wtd.quantile(share_ely, weights = hh_weights, probs = 0.05),
-    y25 = wtd.quantile(share_ely, weights = hh_weights, probs = 0.25),
-    y50 = wtd.quantile(share_ely, weights = hh_weights, probs = 0.5),
-    y75 = wtd.quantile(share_ely, weights = hh_weights, probs = 0.75),
-    y95 = wtd.quantile(share_ely, weights = hh_weights, probs = 0.95),
-    mean = wtd.mean(   share_ely, weights = hh_weights))%>%
-  ungroup()
-
-P.2 <- ggplot(ely_all_1, aes(x = Urban, fill = Urban))+
-  geom_boxplot(aes(ymin = y5, lower = y25, middle = y50, upper = y75, ymax = y95), stat = "identity", position = position_dodge(0.5), outlier.shape = NA, width = 0.5) +
-  geom_point(aes(y = mean), shape = 23, size = 1.5, fill = "white")+
-  theme_bw()+
-  facet_wrap(~ country, nrow = 1, strip.position = "bottom")+
-  coord_cartesian(ylim = c(0,0.17))+
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1))+
-  ylab("Share of Electricity Expenditures over all Expenditures")+
-  scale_fill_npg()+xlab("")+guides(fill =guide_legend(title = NULL))+
-  theme(legend.background = element_rect(fill = "white", colour = "black"),legend.position = c(0.2, 0.8), panel.border = element_rect(size = 1), legend.text = element_text(size = 12), strip.text = element_text(size = 9), strip.background = element_rect(colour = "black", size = 1), axis.text.y = element_text(size = 9), axis.text.x = element_blank(), axis.ticks = element_blank(), axis.title.y = element_text(size = 10))
-
-png("Figure_S2_%d.png", width = 22, height = 12, unit = "cm", res = ppi)
-
-P.2
-
-dev.off()  
-
-# 10       Analysis on included Emissions                   (Figure S4) ####
+# 13       Analysis on included Emissions                   (Figure S4) ####
 
 
 pre_analyse_1 <- function(Country.Name){
@@ -1172,68 +1710,7 @@ P.1
 
 dev.off()
 
-# 11       Vertical vs horizontal equity                    (Table 2) ####
-
-vertical_horizontal <- function(Incidence_Country, Country.Name){
-  
-  Incidence.X <- Incidence_Country %>%
-    select(hh_id, hh_weights, burden_CO2_within_per_capita, Income_Group_5)%>%
-    group_by(Income_Group_5)%>%
-    summarise(y5  = wtd.quantile(burden_CO2_within_per_capita, weights = hh_weights, probs = 0.05),
-              y50 = wtd.quantile(burden_CO2_within_per_capita, weights = hh_weights, probs = 0.50),
-              y95 = wtd.quantile(burden_CO2_within_per_capita, weights = hh_weights, probs = 0.95))%>%
-    ungroup()
-  
-  Incidence.1 <- Incidence.X %>%
-    select(Income_Group_5, y5, y95)%>%
-    mutate(dif = y95-y5)%>%
-    select(-y5, - y95)%>%
-    spread(key = Income_Group_5, value = dif)%>%
-    mutate(Country = Country.Name)%>%
-    select(Country, everything())
-  
-  Incidence.2 <- Incidence.X %>%
-    select(Income_Group_5, y50)%>%
-    mutate(fact = ifelse(y50 == max(y50),1,
-                         ifelse(y50 == min(y50),2,0)))%>%
-    filter(fact != 0)
-  
-  Incidence.2.1 <- Incidence.2 %>%
-    filter(fact == 1)%>%
-    rename(Quintile_Max = Income_Group_5, max = y50)%>%
-    select(-fact)%>%
-    mutate(Country = Country.Name)
-  
-  Incidence.2.2 <- Incidence.2 %>%
-    filter(fact == 2)%>%
-    rename(Quintile_Min = Income_Group_5, min = y50)%>%
-    select(-fact)%>%
-    mutate(Country = Country.Name)
-  
-  Incidence.2.0 <- left_join(Incidence.2.1, Incidence.2.2, by = "Country")%>%
-    select(Country, Quintile_Min, Quintile_Max, min, max)%>%
-    mutate(Difference_Median = max - min)%>%
-    select(-max, -min)
-  
-  Incidence_0 <- left_join(Incidence.2.0, Incidence.1, by = "Country")
-  
-  return(Incidence_0)
-}
-
-vh_BAN <- vertical_horizontal(Incidence.Bangladesh, "Bangladesh")
-vh_INI <- vertical_horizontal(Incidence.India,      "India")
-vh_INO <- vertical_horizontal(Incidence.Indonesia,  "Indonesia")
-vh_PAK <- vertical_horizontal(Incidence.Pakistan,   "Pakistan")
-vh_PHI <- vertical_horizontal(Incidence.Philippines, "Philippines")
-vh_THA <- vertical_horizontal(Incidence.Thailand,   "Thailand")
-vh_TUR <- vertical_horizontal(Incidence.Turkey,     "Turkey")
-vh_VIE <- vertical_horizontal(Incidence.Vietnam,    "Vietnam")
-
-vh_total <- rbind(vh_BAN, vh_INI, vh_INO, vh_PAK, vh_PHI, vh_THA, vh_TUR, vh_VIE)
-
-# write.xlsx(vh_total, "Vertical_horizontal_equity.xlsx")
-
-# 12       Correlation Figure on Food, Services, Goods      (Figures S5 to S8) ####
+# 14       Correlation Figure on Food, Services, Goods      (Figures S6 to S9) ####
 
 add_BAN <- read_csv("Aggregated_Data/Decomposition_files/Expenditure_types_Bangladesh.csv")
 add_INI <- read_csv("Aggregated_Data/Decomposition_files/Expenditure_types_India.csv")
@@ -1483,7 +1960,82 @@ s.32
 
 dev.off()
 
-# 13       Correlation Coefficients                         (Table S9) ####
+# 15       Figure 1 including Power Sector Instruments      (Figure S10) ####
+
+normalize_new <- function(Incidence.X, Country.Name, limit_low, limit_up, step_0, XLAB = "", YLAB = "", ATX = element_text(size = 20), ATY = element_text(size = 20)){
+  #Incidence.X <- Incidence.X %>%
+  #  select(-value.urban, - value.rural)
+  Incidence.X <- Incidence.X %>%
+    rename(type = Type_0)%>%
+    mutate(Label_2 = ifelse(Country.Name == "Pakistan" & type == "TRSP" & Income_Group_5 > 3, round(pure,2), NA))
+  
+  
+  Incidence.X$help <- paste(Incidence.X$Income_Group_5, "_", Incidence.X$type)
+  
+  if(Country.Name == "Thailand" | Country.Name == "Turkey" | Country.Name == "Indonesia" | Country.Name == "India") nudge_0 <- -0.25 else nudge_0 <- -0.25
+  
+  P.1 <- ggplot(Incidence.X, aes(x = factor(Income_Group_5)))+
+    geom_hline(yintercept = 1, size = 1, colour = "black")+
+    #geom_ribbon(aes(ymin = low, ymax = upper, group = type, fill = type), alpha = 0.2)+
+    geom_label_repel(aes(y = 1,    group = type, segment.linetype = 1, label = label, segment.size = 1), size = 7, direction = "y", min.segment.length = 0, nudge_y = nudge_0)+
+    geom_label_repel(aes(y = 3,    group = type, segment.linetype = 1, label = Label_2, segment.size = 1), size = 7, direction = "y", min.segment.length = 0, nudge_y = -0.4)+
+    #geom_label_repel(aes(y = pure, group = type, segment.linetype = 1, label = label_emissions_coverage, segment.size = 1, size = 15), min.segment.length = 0, hjust = 1, force_pull = 0, nudge_x = 1)+
+    geom_line(aes( y = pure, group = type, colour = type, alpha = type), size = 1.5, position = position_dodge(0.2))+
+    geom_point(aes(y = pure, group = type, fill = type, shape = type, alpha = type), size = 5, colour = "black", position = position_dodge(0.2))+
+    scale_colour_npg(  labels = c("International Carbon Price","National Carbon Price", "Power Sector Instruments", "Electricity Sector Carbon Price", "Liquid Fuel Carbon Price")) +
+    scale_fill_npg  (  labels = c("International Carbon Price","National Carbon Price", "Power Sector Instruments", "Electricity Sector Carbon Price", "Liquid Fuel Carbon Price"))+
+    scale_shape_manual(labels = c("International Carbon Price","National Carbon Price", "Power Sector Instruments", "Electricity Sector Carbon Price", "Liquid Fuel Carbon Price"), values = c(21,22,23,24,25))+
+    scale_alpha_manual(labels = c("International Carbon Price","National Carbon Price", "Power Sector Instruments", "Electricity Sector Carbon Price", "Liquid Fuel Carbon Price"), values = c(0.5,0.5,1,0.5,0.5))+
+    labs(fill = "", colour = "", shape = "", alpha = "", linetype = "")+
+    theme_bw() + 
+    scale_x_discrete(labels = c("1","2","3","4","5"))+
+    scale_y_continuous(breaks = seq(limit_low, limit_up, step_0))+
+    theme(axis.text.x = ATX, axis.text.y = ATY, axis.title = element_text(size = 25), legend.position = "bottom" , plot.title = element_text(size = 35), panel.border = element_rect(size = 1.5), panel.grid.major = element_line(size = 1))+
+    coord_cartesian(ylim = c(limit_low-0.0, (limit_up+0.0)))+
+    #guides(fill = guide_legend(nrow = 2, order = 1), colour = guide_legend(nrow = 2, order = 1), shape = guide_legend(nrow = 2, order = 1), alpha = FALSE, size = FALSE)+
+    guides(fill = FALSE, colour = FALSE, shape = FALSE, size = FALSE, alpha = FALSE)+
+    xlab(XLAB)+ylab(YLAB)+ ggtitle(Country.Name)
+  
+  return(P.1)
+}
+
+P.1.BAN   <- normalize_new(Incidence.Bangladesh.2,  "Bangladesh",  0.5, 2.5, 0.50, ATX = element_blank(), YLAB = "Incidence normalized by first Quintile")
+P.1.India <- normalize_new(Incidence.India.2,       "India",       0.5, 2.5, 0.50, ATX = element_blank(), ATY = element_blank())
+P.1.IDN   <- normalize_new(Incidence.Indonesia.2,   "Indonesia",   0.5, 2.5, 0.50, ATX = element_blank(), ATY = element_blank())
+P.1.PAK   <- normalize_new(Incidence.Pakistan.2,    "Pakistan",    0.5, 2.5, 0.50, ATX = element_blank(), ATY = element_blank())
+P.1.PHI   <- normalize_new(Incidence.Philippines.2, "Philippines", 0.5, 2.5, 0.50, XLAB = "Expenditure Quintile", YLAB = "Incidence normalized by first Quintile")
+P.1.THA   <- normalize_new(Incidence.Thailand.2,    "Thailand",    0.5, 2.5, 0.50, XLAB = "Expenditure Quintile", ATY = element_blank())
+P.1.TUR   <- normalize_new(Incidence.Turkey.2,      "Turkey",      0.5, 2.5, 0.50, XLAB = "Expenditure Quintile", ATY = element_blank())
+P.1.VIE   <- normalize_new(Incidence.Vietnam.2,     "Vietnam",     0.5, 2.5, 0.50, XLAB = "Expenditure Quintile", ATY = element_blank())
+
+P.10 <- cowplot::align_plots(P.1.BAN, P.1.India, P.1.IDN, P.1.PAK, P.1.PHI, P.1.THA, P.1.TUR, P.1.VIE, align = "hv")
+s.1 <- ggdraw(P.10[[1]])
+s.2 <- ggdraw(P.10[[2]])
+s.3 <- ggdraw(P.10[[3]])
+s.4 <- ggdraw(P.10[[4]])
+s.5 <- ggdraw(P.10[[5]])
+s.6 <- ggdraw(P.10[[6]])
+s.7 <- ggdraw(P.10[[7]])
+s.8 <- ggdraw(P.10[[8]])
+
+png("Figures/Figure_S10_SI_%d.png", width = 15, height = 16, unit = "cm", res = ppi)
+
+s.1
+s.2
+s.3
+s.4
+s.5
+s.6
+s.7
+s.8
+
+dev.off()
+
+# 16       Energy vs. Non-Energy                            (Figure S11) ####
+
+# Data on carbon pricing incidences vs. expenditures on energy vs non-energy items is not part of this repository
+# Confidential Data. Available upon request and conditional on approval by responsible statistics authority.
+# 17       Correlation Coefficients                         (Table S9) ####
 
 t_BAN <- function_9.1(Incidence.Bangladesh,  add_BAN, "Bangladesh")$t
 t_INI <- function_9.1(Incidence.India,       add_INI, "India")$t
@@ -1504,7 +2056,7 @@ t_total <- rbind(t_BAN, t_INI)%>%
 
 # write.xlsx(t_total, "Table_S9.xlsx")
 
-# 14       Summary Statistics                               (Tables S2, S7, S8) ####
+# 18       Summary Statistics                               (Tables S2, S7, S8) ####
 
 function_sum_1 <- function(x0, x1, Country.Name){
   if(Country.Name == "Indonesia" | Country.Name == "Thailand" | Country.Name == "Vietnam"){
@@ -1617,102 +2169,7 @@ Sum_TOT_2 <- bind_rows(Sum_BAN_2, Sum_INI_2, Sum_INO_2, Sum_PAK_2, Sum_PHI_2, Su
 
 # write.xlsx(Sum_TOT_2, "Summary_Statistics_HHs_incidences.xlsx")
 
-# 15       Coal Pipeline                                    (Figure S1) ####
-
-# cp <- 
-# DOWNLOAD FROM https://docs.google.com/spreadsheets/d/1dxEObsymdexLIsUM0bSm2SGibNr_GIPT51nu_f7kXxc/edit#gid=0
-
-cp_0 <- cp %>%
-  select(Country, 'Announced.+.Pre-permit.+.Permitted', 'Construction', 'Operating')%>%
-  rename(announced_permitted = 'Announced.+.Pre-permit.+.Permitted')%>%
-  filter(Country == "China" | Country == "India" | Country == "Total" | Country == "Indonesia" | Country == "Pakistan" |
-           Country == "Bangladesh" | Country == "Vietnam" | Country == "Thailand" | Country == "Turkey" | Country == "Philippines")
-
-cp_1 <- cp_0 %>%
-  filter(Country != "Total" & Country != "China")%>%
-  mutate(Country = reorder(Country, -Operating))%>%
-  pivot_longer(-Country, "Type", values_to = "MW")%>%
-  mutate(Type = factor(Type, levels = c("Operating", "Construction", "announced_permitted")))%>%
-  mutate(GW = MW/1000)
-
-plot_13 <- function(Country.Name, YLIM, XLIM, YLAB = "", XLAB = "", ATX = element_blank(), ATY = element_text(size = 20, vjust = 0.1), ATT = element_text(size = 25), fill0 = FALSE){
-
-cp_2 <- cp_1 %>%
-  filter(Country == Country.Name)
-  
-P <- ggplot(cp_2)+
-  geom_col(aes(fill = Type, x = Type, y = GW), colour = "black", width = 0.75)+
-  scale_fill_npg(name = "", labels = c("Operating", "Construction", "Announced / Permitted"))+
-  xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", fill = "")+
-  theme_bw()+
-  theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 35), panel.border = element_rect(size = 1.5), panel.grid.major = element_line(size = 1), strip.text = element_text(size = 25), strip.text.y = element_text(angle = 180))+
-  coord_cartesian(ylim = c(0,YLIM+ 2))+
-  scale_y_continuous(expand = c(0,0), breaks = c(0,signif(YLIM, 0), signif(YLIM, 0)/2))+
-  #guides(colour = fill0, fill = guide_legend(ncol = 1))+
-  guides(fill = fill0, colour = fill0)+
-  ggtitle(Country.Name)
-  
-  return(P)
-}
-
-P.13.BAN <- plot_13("Bangladesh", YLIM = 20, YLAB = "Capacity in GW")
-P.13.INI <- plot_13("India",      YLIM = 250, YLAB = "Capacity in GW")
-P.13.INO <- plot_13("Indonesia",  YLIM = 40, YLAB = "Capacity in GW")
-P.13.PAK <- plot_13("Pakistan",   YLIM = 20, ATY = element_blank())
-P.13.PHI <- plot_13("Philippines",YLIM = 20, ATY = element_blank())
-P.13.THA <- plot_13("Thailand",   YLIM = 10, YLAB = "Capacity in GW")
-P.13.TUR <- plot_13("Turkey",     YLIM = 40, ATY = element_blank())
-P.13.VIE <- plot_13("Vietnam",    YLIM = 40, ATY = element_blank())
-
-P.13 <- cowplot::align_plots(P.13.BAN, P.13.INI, P.13.INO, P.13.PAK, P.13.PHI, P.13.THA, P.13.TUR, P.13.VIE, align = "hv")
-s.1 <- ggdraw(P.13[[1]])
-s.2 <- ggdraw(P.13[[2]])
-s.3 <- ggdraw(P.13[[3]])
-s.4 <- ggdraw(P.13[[4]])
-s.5 <- ggdraw(P.13[[5]])
-s.6 <- ggdraw(P.13[[6]])
-s.7 <- ggdraw(P.13[[7]])
-s.8 <- ggdraw(P.13[[8]])
-
-
-png("Coal Pipeline/Figure_S1_%d.png", width = 15, height = 15, unit = "cm", res = ppi)
-
-s.1
-s.2
-s.3
-s.4
-s.5
-s.6
-s.7
-s.8
-
-dev.off()
-
-# L.1 <- ggdraw(get_legend(P.13.BAN))
-# 
-# png("Coal Pipeline/Legend.png", width = 4*ppi, height = 4*ppi, res = ppi)
-# 
-# L.1
-# 
-# dev.off()
-
-cp_2 <- cp %>%
-  select(Country, 'Announced.+.Pre-permit.+.Permitted', 'Construction', 'Operating')%>%
-  rename(announced_permitted = 'Announced.+.Pre-permit.+.Permitted')%>%
-  select(-Operating)%>%
-  mutate(Merge = announced_permitted + Construction)%>%
-  filter(Merge != 0)%>%
-  arrange(Merge)
-
-cp_3 <- cp %>%
-  select(Country, Operating)%>%
-  filter(Operating != 0)%>%
-  arrange(Operating)
-
-# write.xlsx(cp_2, "Coal Pipeline/Summary_1.xlsx")
-# write.xlsx(cp_3, "Coal Pipeline/Operating.xlsx")
-
-# 16       Carbon Intensities Expenditure Types             (Table S5) ####
+# 19       Carbon Intensities Expenditure Types             (Table S5) ####
 
 transform_1 <- transform_0 %>%
   select(GTAP, Type)
@@ -1763,6 +2220,7 @@ int_FULL <- left_join(int_BAN, int_INI, by = "Type")%>%
   left_join(int_VIE, by = "Type")
 
 #write.xlsx(int_FULL, "Table S5.xlsx")
+
 
 
 
