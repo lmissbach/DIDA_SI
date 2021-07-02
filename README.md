@@ -5,8 +5,9 @@ This repository contains supplementary data on the publication "Climate Policy a
 ## Data
 
 - *Aggregated Data* includes csv-files containing **aggregated datafiles**. 
-
+ 
 **Please note that due to confidentiality restrictions we have no permission to share raw data.**
+Access is permitted upon reasonable request from the authors and conditional on permission by the respective statistical authorities.
 
 - *Code* includes 2_Analysis.R. The output of this script is the data stored in *Aggregated Data*. 3_Graphics.R makes use of this data to produce figures and tables from the manuscript and supplementary information.
 

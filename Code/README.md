@@ -2,7 +2,7 @@ This subfolder contains R-Code used in the analysis of household budget surveys.
 
 **Note that we are not allowed to share raw data.** 
 
-- *Cleaning*-Files ("1_Cleaning_") require raw data.
+- *Cleaning*-Files ("1_Cleaning_") require raw household data.
 
 - *2_Analysis.R* requires output from *Cleaning*-Files.
 
