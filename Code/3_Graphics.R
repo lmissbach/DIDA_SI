@@ -616,7 +616,7 @@ Figure_C
 dev.off()
 
 
-# 5        Distributions                                    (Figure 2+3) ####
+# 5        Distributions                                    (Figure 2+Extended Data Figure 1) ####
 
 calculate_median <- function(x){
   x <- x %>%
@@ -646,10 +646,15 @@ calculate_median_y <- function(x0, xmedian, adjust_0){
 plotting_ten.1 <- function(Incidence.X, Country.Name, fill0 = FALSE, ATY = element_blank(), ATX = element_text(size = 20), ATT = element_text(size = 25), XLAB = "", YLAB = "", YLIM = 0.01, adjust_1 = 0.2){
   adjust_0 <- adjust_1
   
+  add_on <- expand.grid(Income_Group_5 = c(1,2,3,4,5), Urban = c("Urban", "Rural", "Country"), burden_CO2_within_per_capita = c(seq(0,0.1,0.001)))%>%
+    mutate(hh_weights = 0)
+  
   # Round Values up, calculate households per bins
   Incidence.X0 <- Incidence.X %>%
     filter(Income_Group_5 != 0)%>%
     mutate(burden_CO2_within_per_capita = round(burden_CO2_within_per_capita,3))%>%
+    filter(!is.na(burden_CO2_within_per_capita))%>%
+    bind_rows(add_on)%>%
     group_by(Income_Group_5, Urban, burden_CO2_within_per_capita)%>%
     summarise(weights = sum(hh_weights))%>%
     ungroup()
@@ -696,18 +701,18 @@ plotting_ten.1 <- function(Incidence.X, Country.Name, fill0 = FALSE, ATY = eleme
     theme(axis.text.y = ATY, axis.text.x= ATX, axis.title = ATT, plot.title = element_text(size = 7), legend.position = "bottom", strip.text = element_text(size = 7), strip.text.y = element_text(angle = 180), panel.grid.major = element_line(size = 0.3), panel.grid.minor = element_blank(), axis.ticks = element_line(size = 0.2),
           legend.text = element_text(size = 7), legend.title = element_text(size = 7), plot.margin = unit(c(0.1,0.1,0,0), "cm"), panel.border = element_rect(size = 0.3))+
     annotate("rect", xmin = min_median, xmax = max_median, ymin = 0, ymax = 0.11, alpha = 0.5, fill = "grey")+
-    annotate("segment", x = min_median, xend = max_median, y = 0.098, yend = 0.098, arrow = arrow(ends = "both", angle = 90, length = unit (.05, "cm")), size = 0.2)+
-    annotate("text", x = (min_median + max_median)/2, y = 0.101, label = "paste(Delta, V)", parse = TRUE, size = 1.5)+
-    geom_point(aes(x = median.x, y = median.y, group = factor(Income_Group_5), fill = factor(Income_Group_5)), shape = 21, size = 1.3, stroke = 0.2, colour = "black")+
+    annotate("segment", x = min_median, xend = max_median, y = 0.078, yend = 0.078, arrow = arrow(ends = "both", angle = 90, length = unit (.05, "cm")), size = 0.2)+
+    annotate("text", x = (min_median + max_median)/2, y = 0.081, label = "paste(Delta, V)", parse = TRUE, size = 1.5)+
     geom_smooth(aes(x = burden_CO2_within_per_capita, y = share), size = 0.3, method = "loess", n = 160, span = adjust_0, se = FALSE, fullrange = TRUE)+
+    geom_point(aes(x = median.x, y = median.y, group = factor(Income_Group_5), fill = factor(Income_Group_5)), shape = 21, size = 1.3, stroke = 0.2, colour = "black")+
     xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", linetype = "", fill = "")+
-    scale_y_continuous(breaks = c(0,0.05,0.1), expand = c(0,0), labels = scales::percent_format(accuracy = 1))+
+    scale_y_continuous(breaks = c(0,0.025,0.05,0.075), expand = c(0,0), labels = scales::percent_format(accuracy = 0.1))+
     scale_x_continuous(expand = c(0,0), labels = scales::percent_format(accuracy = 1), breaks = seq(0,0.08, 0.02))+
-    coord_cartesian(xlim = c(0,0.085), ylim = c(0,0.105))+
+    coord_cartesian(xlim = c(0,0.085), ylim = c(0,0.085))+
     #geom_segment(aes(x = median, xend = median, y = 0, yend = 100, colour = factor(Income_Group_5), linetype = factor(Income_Group_5)), size = 1)+
-    scale_colour_manual(  values = c("#BC3C29FF","#7876B1FF","#000000","#20854EFF",   "#0072B5FF"))+
-    scale_fill_manual(    values = c("#BC3C29FF","#7876B1FF","#000000","#20854EFF",   "#0072B5FF"))+
-    scale_linetype_manual(values = c("solid", "dashed", "dashed", "dashed", "solid"))+
+    scale_colour_manual(  values = c("#BC3C29FF","#00A087FF","#000000","#E18727FF",   "#0072B5FF"))+
+    scale_fill_manual(    values = c("#BC3C29FF","#00A087FF","#000000","#E18727FF",   "#0072B5FF"))+
+    scale_linetype_manual(values = c("solid", "longdash", "dotdash", "solid", "solid"))+
     ggtitle(Country.Name)+
     #guides(fill = guide_legend("Expenditure Quintile"), colour = guide_legend("Expenditure Quintile"), linetype = guide_legend("Expenditure Quintile"))
     guides(fill = fill0, colour = fill0, linetype = fill0)
@@ -723,13 +728,13 @@ plotting_ten.1 <- function(Incidence.X, Country.Name, fill0 = FALSE, ATY = eleme
     geom_smooth(aes(x = burden_CO2_within_per_capita, y = share), size = 0.3, method = "loess", span = adjust_0, se = FALSE, n = 160, fullrange = TRUE)+
     geom_point(aes(x = median.x, y = median.y, fill = factor(Income_Group_5), alpha = factor(Urban)), shape = 21, size = 1.3, stroke = 0.2, colour = "black")+
     xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", linetype = "", fill = "")+
-    scale_y_continuous(breaks = c(0,0.05, 0.1), expand = c(0,0), labels = scales::percent_format(accuracy = 1))+
+    scale_y_continuous(breaks = c(0,0.025, 0.05,0.075), expand = c(0,0), labels = scales::percent_format(accuracy = 0.1))+
     scale_x_continuous(expand = c(0,0), breaks = seq(0,0.08, 0.02), labels = scales::percent_format(accuracy = 1))+
-    coord_cartesian(xlim = c(0,0.085), ylim = c(0,0.105))+
+    coord_cartesian(xlim = c(0,0.085), ylim = c(0,0.085))+
     #geom_segment(aes(x = median, xend = median, y = 0, yend = 100, colour = factor(Income_Group_5), linetype = factor(Income_Group_5)), size = 1)+
     scale_colour_manual(  values = c("#BC3C29FF", "#0072B5FF"))+
     scale_fill_manual(    values = c("#BC3C29FF", "#0072B5FF"))+
-    scale_linetype_manual(values = c("solid", "dotted"))+
+    scale_linetype_manual(values = c("solid", "dotdash"))+
     scale_alpha_manual(   values = c(1,0.5))+
     ggtitle(Country.Name)+
     #guides(fill = guide_legend("Expenditure Quintile"), alpha = FALSE, colour = guide_legend("Expenditure Quintile"))
@@ -740,14 +745,14 @@ plotting_ten.1 <- function(Incidence.X, Country.Name, fill0 = FALSE, ATY = eleme
   return(Files)
 }
 
-P.10.Ba.3 <- plotting_ten.1(Incidence.Bangladesh.1,                    "Bangladesh",  ATY = element_text(size = 6, vjust = 0.1),    ATX = element_blank(),         ATT = element_text(size = 7),          XLAB = "", YLAB = "Share of Households per Quintile")$Plot_3
-P.10.Ii.3 <- plotting_ten.1(Incidence.India.1,       adjust_1 = 0.1,   "India",       ATY = element_blank(),                        ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_3
-P.10.Io.3 <- plotting_ten.1(Incidence.Indonesia.1,   adjust_1 = 0.1,   "Indonesia",   ATY = element_blank(),                        ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_3
-P.10.Pa.3 <- plotting_ten.1(Incidence.Pakistan.1,    adjust_1 = 0.1,   "Pakistan",    ATY = element_blank(),                        ATX = element_blank() ,        ATT = element_blank(),          XLAB = "")$Plot_3
-P.10.Ph.3 <- plotting_ten.1(Incidence.Philippines.1, adjust_1 = 0.35,  "Philippines", ATY = element_text(size = 6, vjust = 0.1),    ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence", YLAB = "Share of Households per Quintile")$Plot_3
-P.10.Th.3 <- plotting_ten.1(Incidence.Thailand.1,    adjust   = 0.15,    "Thailand",    ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_3
-P.10.Tu.3 <- plotting_ten.1(Incidence.Turkey.1,      adjust_1 = 0.12,  "Turkey",      ATY = element_blank(),                        ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_3
-P.10.Vi.3 <- plotting_ten.1(Incidence.Vietnam.1,                       "Vietnam",     ATY = element_blank(),                        ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_3
+P.10.Ba.3 <- plotting_ten.1(Incidence.Bangladesh.1,  adjust_1 = 0.2,   "Bangladesh",  ATY = element_text(size = 6, vjust = 0.1),    ATX = element_blank(),         ATT = element_text(size = 7),          XLAB = "", YLAB = "Share of Households per Quintile")$Plot_3
+P.10.Ii.3 <- plotting_ten.1(Incidence.India.1,       adjust_1 = 0.2,   "India",       ATY = element_blank(),                        ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_3
+P.10.Io.3 <- plotting_ten.1(Incidence.Indonesia.1,   adjust_1 = 0.2,   "Indonesia",   ATY = element_blank(),                        ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_3
+P.10.Pa.3 <- plotting_ten.1(Incidence.Pakistan.1,    adjust_1 = 0.2,   "Pakistan",    ATY = element_blank(),                        ATX = element_blank() ,        ATT = element_blank(),          XLAB = "")$Plot_3
+P.10.Ph.3 <- plotting_ten.1(Incidence.Philippines.1, adjust_1 = 0.2,   "Philippines", ATY = element_text(size = 6, vjust = 0.1),    ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence", YLAB = "Share of Households per Quintile")$Plot_3
+P.10.Th.3 <- plotting_ten.1(Incidence.Thailand.1,    adjust_1 = 0.2,   "Thailand",    ATY = element_blank(),                        ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_3
+P.10.Tu.3 <- plotting_ten.1(Incidence.Turkey.1,      adjust_1 = 0.2,   "Turkey",      ATY = element_blank(),                        ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_3
+P.10.Vi.3 <- plotting_ten.1(Incidence.Vietnam.1,     adjust_1 = 0.2,   "Vietnam",     ATY = element_blank(),                        ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_3
 
 P.10 <- cowplot::align_plots(P.10.Ba.3, P.10.Ii.3, P.10.Io.3, P.10.Pa.3, P.10.Ph.3, P.10.Th.3, P.10.Tu.3, P.10.Vi.3, align = "hv")
 s.1 <- ggdraw(P.10[[1]])
@@ -781,14 +786,14 @@ pdf("Figures/Figure_2.pdf", width = 16.51/2.54, height = 10/2.54)
 Figure_2
 dev.off()
 
-P.10.Ba.4 <- plotting_ten.1(Incidence.Bangladesh.1, adjust_1 = 0.25, "Bangladesh",  ATY = element_text(size = 6, vjust = 0.1), ATX = element_blank(),         ATT = element_text(size = 7),          XLAB = "", YLAB = "Share of Households per Quintile")$Plot_4
-P.10.Ii.4 <- plotting_ten.1(Incidence.India.1,      adjust_1 = 0.12, "India",       ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_4
-P.10.Io.4 <- plotting_ten.1(Incidence.Indonesia.1,  adjust_1 = 0.15, "Indonesia",   ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_4
-P.10.Pa.4 <- plotting_ten.1(Incidence.Pakistan.1,   adjust_1 = 0.15, "Pakistan",    ATY = element_blank(),                      ATX = element_blank() ,        ATT = element_blank(),          XLAB = "")$Plot_4
-P.10.Ph.4 <- plotting_ten.1(Incidence.Philippines.1,adjust_1 = 0.3, "Philippines",  ATY = element_text(size = 6, vjust = 0.1), ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence", YLAB = "Share of Households per Quintile")$Plot_4
-P.10.Th.4 <- plotting_ten.1(Incidence.Thailand.1,   adjust_1 = 0.15, "Thailand",    ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_4
-P.10.Tu.4 <- plotting_ten.1(Incidence.Turkey.1,     adjust_1 = 0.15, "Turkey",      ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_4
-P.10.Vi.4 <- plotting_ten.1(Incidence.Vietnam.1,    adjust_1 = 0.3, "Vietnam",     ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_4
+P.10.Ba.4 <- plotting_ten.1(Incidence.Bangladesh.1, adjust_1 = 0.2, "Bangladesh",  ATY = element_text(size = 6, vjust = 0.1), ATX = element_blank(),         ATT = element_text(size = 7),          XLAB = "", YLAB = "Share of Households per Quintile")$Plot_4
+P.10.Ii.4 <- plotting_ten.1(Incidence.India.1,      adjust_1 = 0.2, "India",       ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_4
+P.10.Io.4 <- plotting_ten.1(Incidence.Indonesia.1,  adjust_1 = 0.2, "Indonesia",   ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")$Plot_4
+P.10.Pa.4 <- plotting_ten.1(Incidence.Pakistan.1,   adjust_1 = 0.2, "Pakistan",    ATY = element_blank(),                      ATX = element_blank() ,        ATT = element_blank(),          XLAB = "")$Plot_4
+P.10.Ph.4 <- plotting_ten.1(Incidence.Philippines.1,adjust_1 = 0.2, "Philippines",  ATY = element_text(size = 6, vjust = 0.1), ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence", YLAB = "Share of Households per Quintile")$Plot_4
+P.10.Th.4 <- plotting_ten.1(Incidence.Thailand.1,   adjust_1 = 0.2, "Thailand",    ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_4
+P.10.Tu.4 <- plotting_ten.1(Incidence.Turkey.1,     adjust_1 = 0.2, "Turkey",      ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_4
+P.10.Vi.4 <- plotting_ten.1(Incidence.Vietnam.1,    adjust_1 = 0.2, "Vietnam",     ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Carbon Price Incidence")$Plot_4
 
 P.10 <- cowplot::align_plots(P.10.Ba.4, P.10.Ii.4, P.10.Io.4, P.10.Pa.4, P.10.Ph.4, P.10.Th.4, P.10.Tu.4, P.10.Vi.4, align = "hv")
 s.1 <- ggdraw(P.10[[1]])
@@ -823,7 +828,7 @@ pdf("Figures/Figure_3.pdf", width = 16.51/2.54, height = 10/2.54)
 Figure_3
 dev.off()
 
-# 6        Non-parametric Engel-Curves                      (Figure 4) ####
+# 6        Non-parametric Engel-Curves                      (Figure 3) ####
 
 # NOTE
 # Confidential data. Access upon reasonable request and subject to approval by local statistics office.
@@ -971,7 +976,7 @@ Figure_4
 dev.off()
 
 
-# 7        Energy Expenditure Shares                        (Figure 5) ####
+# 7        Energy Expenditure Shares                        (Figure 4) ####
 
 # Note:
 
@@ -1045,7 +1050,7 @@ Figure_5
 dev.off()
 
 
-# 8        Distribution incl Including Lump Sum Transfers   (Figure 6) ####
+# 8        Distribution incl Including Lump Sum Transfers   (Figure 5) ####
 
 calculate_median <- function(x){
   x <- x %>%
@@ -1078,12 +1083,17 @@ calculate_median_y <- function(x0, xmedian, adjust_0){
 plotting_ten.1 <- function(Incidence.X, Country.Name, fill0 = FALSE, ATY = element_blank(), ATX = element_text(size = 6), ATT = element_text(size = 7), XLAB = "", YLAB = "", YLIM = 0.01, adjust_1 = 0.2){
   adjust_0 <- adjust_1
   
+  add_on <- expand.grid(Income_Group_5 = c(1,2,3,4,5), Urban = c("Urban", "Rural", "Country"), burden_CO2_within_per_capita = c(seq(-0.1,0.1,0.001)),
+                        burden_CO2_within_pc_LST_pc = c(seq(-0.1,0.1,0.001)))%>%
+    mutate(hh_weights = 0)
+  
   # Round Values up, calculate households per bins
   Incidence.X0 <- Incidence.X %>%
     select(hh_id, hh_weights, Income_Group_5, burden_CO2_within_per_capita, burden_CO2_within_pc_LST_pc)%>%
+    bind_rows(add_on)%>%
     pivot_longer(starts_with("burden"), names_to = "type", values_to = "value")%>%
     filter(Income_Group_5 == 1 | Income_Group_5 == 5)%>%
-    filter(!is.na(value) & value != "-Inf" & value > -0.5 & value != "Inf" & value < 0.5)%>%
+    filter(!is.na(value) & value != "-Inf" & value != "Inf" & value < 0.5 & value > -0.5)%>%
     #mutate(value = value*(-1))%>%
     mutate(Type = ifelse(type == "burden_CO2_within_per_capita", "National Carbon Price", "National Carbon Price and equal per capita transfer"),
            value = round(value,3))%>%
@@ -1133,9 +1143,9 @@ plotting_ten.1 <- function(Incidence.X, Country.Name, fill0 = FALSE, ATY = eleme
     geom_smooth(aes(x = value, y = share, group = Label), size = 0.3, method = "loess", n = 500, span = adjust_0, se = FALSE, fullrange = TRUE)+
     geom_point(aes(x = median.x, y = median.y, group = Label, fill = Label), shape = 21, size = 1.3, colour = "black", stroke = 0.2)+
     xlab(XLAB)+ ylab(YLAB)+ labs(colour = "", linetype = "", fill = "")+
-    scale_y_continuous(breaks = c(0,0.05,0.1), expand = c(0,0), labels = scales::percent_format(accuracy = 1))+
+    scale_y_continuous(breaks = c(0,0.025,0.05,0.075), expand = c(0,0), labels = scales::percent_format(accuracy = 0.1))+
     scale_x_continuous(expand = c(0,0), labels = scales::percent_format(accuracy = 1), breaks = seq(-0.1,0.15, 0.05))+
-    coord_cartesian(xlim = c(-0.085,0.165), ylim = c(0,0.1))+
+    coord_cartesian(xlim = c(-0.085,0.165), ylim = c(0,0.085))+
     #geom_segment(aes(x = median, xend = median, y = 0, yend = 100, colour = factor(Income_Group_5), linetype = factor(Income_Group_5)), size = 1)+
     scale_colour_manual(  values = c("#BC3C29FF", "#0072B5FF", "#BC3C29FF", "#0072B5FF"))+
     scale_fill_manual(    values = c("#BC3C29FF", "#0072B5FF", "#BC3C29FF", "#0072B5FF"))+
@@ -1148,12 +1158,12 @@ plotting_ten.1 <- function(Incidence.X, Country.Name, fill0 = FALSE, ATY = eleme
 }
 
 P.10.Ba.3 <- plotting_ten.1(Incidence.Bangladesh.2.2.1,  adjust_1 =  0.2,  "Bangladesh",  ATY = element_text(size = 6, vjust = 0.1),  ATX = element_blank(),         ATT = element_text(size = 7),          XLAB = "", YLAB = "Share of Households per Quintile")
-P.10.Ii.3 <- plotting_ten.1(Incidence.India.2.2.1,       adjust_1 =  0.1,  "India",       ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")
-P.10.Io.3 <- plotting_ten.1(Incidence.Indonesia.2.2.1,   adjust_1 =  0.1,  "Indonesia",   ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")
-P.10.Pa.3 <- plotting_ten.1(Incidence.Pakistan.2.2.1,    adjust_1 =  0.1,  "Pakistan",    ATY = element_blank(),                      ATX = element_blank() ,        ATT = element_blank(),          XLAB = "")
-P.10.Ph.3 <- plotting_ten.1(Incidence.Philippines.2.2.1, adjust_1 =  0.35, "Philippines", ATY = element_text(size = 6, vjust = 0.1),  ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Household Budget Change", YLAB = "Share of Households per Quintile")
-P.10.Th.3 <- plotting_ten.1(Incidence.Thailand.2.2.1,    adjust_1 =  0.15, "Thailand",    ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Household Budget Change")
-P.10.Tu.3 <- plotting_ten.1(Incidence.Turkey.2.2.1,      adjust_1 =  0.12, "Turkey",      ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Household Budget Change")
+P.10.Ii.3 <- plotting_ten.1(Incidence.India.2.2.1,       adjust_1 =  0.2,  "India",       ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")
+P.10.Io.3 <- plotting_ten.1(Incidence.Indonesia.2.2.1,   adjust_1 =  0.2,  "Indonesia",   ATY = element_blank(),                      ATX = element_blank(),         ATT = element_blank(),          XLAB = "")
+P.10.Pa.3 <- plotting_ten.1(Incidence.Pakistan.2.2.1,    adjust_1 =  0.2,  "Pakistan",    ATY = element_blank(),                      ATX = element_blank() ,        ATT = element_blank(),          XLAB = "")
+P.10.Ph.3 <- plotting_ten.1(Incidence.Philippines.2.2.1, adjust_1 =  0.2, "Philippines", ATY = element_text(size = 6, vjust = 0.1),  ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Household Budget Change", YLAB = "Share of Households per Quintile")
+P.10.Th.3 <- plotting_ten.1(Incidence.Thailand.2.2.1,    adjust_1 =  0.2, "Thailand",    ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Household Budget Change")
+P.10.Tu.3 <- plotting_ten.1(Incidence.Turkey.2.2.1,      adjust_1 =  0.2, "Turkey",      ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Household Budget Change")
 P.10.Vi.3 <- plotting_ten.1(Incidence.Vietnam.2.2.1,                       "Vietnam",     ATY = element_blank(),                      ATX = element_text(size = 6), ATT = element_text(size = 7),  XLAB = "Household Budget Change")
 
 P.10 <- cowplot::align_plots(P.10.Ba.3, P.10.Ii.3, P.10.Io.3, P.10.Pa.3, P.10.Ph.3, P.10.Th.3, P.10.Tu.3, P.10.Vi.3, align = "hv")
